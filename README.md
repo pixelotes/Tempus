@@ -4,15 +4,15 @@ Aplicación completa desarrollada con Flask para gestionar fichajes de empleados
 
 ## Características
 
-✅ Sistema de fichaje (Entrada/Salida)
-✅ Solicitud y aprobación de **Vacaciones** (descuentan días)
-✅ Solicitud y aprobación de **Bajas** (no descuentan días)
-✅ Sistema de roles (usuario, aprobador, admin)
-✅ Notificaciones por email (simuladas en desarrollo)
-✅ Cronograma de ausencias (Vacaciones y Bajas)
-✅ Resúmenes de horas trabajadas (diario/semanal)
-✅ Panel de administración completo (Gestión de usuarios, festivos, aprobadores)
-✅ Cálculo automático de días laborables (descuenta festivos y fines de semana)
+- Sistema de fichaje (Entrada/Salida)
+- Solicitud y aprobación de **Vacaciones** (descuentan días)
+- Solicitud y aprobación de **Bajas** (no descuentan días)
+- Sistema de roles (usuario, aprobador, admin)
+- Notificaciones por email (simuladas en desarrollo)
+- Cronograma de ausencias (Vacaciones y Bajas)
+- Resúmenes de horas trabajadas (diario/semanal)
+- Panel de administración completo (Gestión de usuarios, festivos, aprobadores)
+- Cálculo automático de días laborables (descuenta festivos y fines de semana)
 
 ## Requisitos
 
@@ -21,6 +21,7 @@ Aplicación completa desarrollada con Flask para gestionar fichajes de empleados
 - Flask-SQLAlchemy
 - Flask-Login
 - Flask-Mail
+- Flask-Dance
 - Gunicorn (para producción)
 
 ## Instalación
@@ -61,3 +62,21 @@ Al iniciar por primera vez, se crea automáticamente un usuario administrador:
 
 -   **Email:** `admin@example.com`
 -   **Contraseña:** `admin123`
+
+### 3. Configuración de Google OAuth
+
+1. Configura las credenciales de Google OAuth en el archivo `.env`:
+    ```bash
+    GOOGLE_CLIENT_ID=your_client_id
+    GOOGLE_CLIENT_SECRET=your_client_secret
+    ```
+
+2. En la consola de Google Cloud Platform (https://console.cloud.google.com/):
+    - Ve a "APIs & Services" → "Credentials"
+    - Ve a tu OAuth 2.0 Client ID
+    - En "Authorized redirect URIs", añade:
+    http://127.0.0.1:5000/login/google/authorized
+    http://localhost:5000/login/google/authorized
+    - Guarda los cambios
+
+3. Reinicia tu servidor Flask después de hacer cambios en `.env`

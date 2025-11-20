@@ -20,6 +20,7 @@
             bottom: 0;
             width: 250px;
             background-color: #343a40;
+            color: white;
             padding: 20px 0;
             overflow-y: auto;
         }
@@ -103,7 +104,7 @@
             <i class="bi bi-house-door"></i> Inicio
         </a>
 
-        <div class="text-muted px-3 mt-3 mb-2 small">FICHAJE</div>
+        <div class="text px-3 mt-3 mb-2 small" style="color: white;">FICHAJE</div>
         <a href="{{ url_for('fichajes') }}" {% if 'fichajes' in request.endpoint %}class="active" {% endif %}>
             <i class="bi bi-clock"></i> Mis Fichajes
         </a>
@@ -114,7 +115,7 @@
             <i class="bi bi-bar-chart"></i> Resumen
         </a>
 
-        <div class="text-muted px-3 mt-3 mb-2 small">AUSENCIAS</div>
+        <div class="text px-3 mt-3 mb-2 small" style="color: white;">AUSENCIAS</div>
         <a href="{{ url_for('vacaciones') }}" {% if request.endpoint=='vacaciones' %}class="active" {% endif %}>
             <i class="bi bi-calendar-check"></i> Mis Vacaciones
         </a>
@@ -133,7 +134,7 @@
         </a>
 
         {% if current_user.rol in ['aprobador', 'admin'] %}
-        <div class="text-muted px-3 mt-3 mb-2 small">APROBACIÓN</div>
+        <div class="text px-3 mt-3 mb-2 small" style="color: white;">APROBACIÓN</div>
         <a href="{{ url_for('aprobar_solicitudes') }}" {% if request.endpoint=='aprobar_solicitudes' %}class="active" {%
             endif %}>
             <i class="bi bi-check-circle"></i> Aprobar Solicitudes
@@ -141,7 +142,7 @@
         {% endif %}
 
         {% if current_user.rol == 'admin' %}
-        <div class="text-muted px-3 mt-3 mb-2 small">ADMINISTRACIÓN</div>
+        <div class="text px-3 mt-3 mb-2 small" style="color: white;">ADMINISTRACIÓN</div>
         <a href="{{ url_for('admin_usuarios') }}" {% if 'admin_usuarios' in request.endpoint %}class="active" {% endif
             %}>
             <i class="bi bi-people"></i> Usuarios
