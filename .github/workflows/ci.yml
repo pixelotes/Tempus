@@ -1,0 +1,31 @@
+name: Test de Arranque (CI)
+
+# Se ejecuta en cada push y pull request
+on: [push, pull_request]
+
+jobs:
+  test-startup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Clonar el repositorio
+        uses: actions/checkout@v4
+
+      - name: 2. Configurar Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: 3. Instalar dependencias
+        run: |
+          pip install -r requirements.txt
+
+      - name: 4. Ejecutar la app en segundo plano
+        run: |
+          flask run &
+          sleep 5 # Dar tiempo a que la app inicie
+
+      - name: 5. Comprobar si la app responde
+        # Usamos -L para seguir la redirección a /login
+        # Usamos --fail para que el paso falle si no recibe un 200 (OK)
+        run: |
+          curl --fail -L http://localhost:5000

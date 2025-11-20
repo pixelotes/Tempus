@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Cronograma de Vacaciones{% endblock %}
+
+{% block extra_css %}
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css' rel='stylesheet' />
+{% endblock %}
+
+{% block content %}
+<h1 class="mb-4"><i class="bi bi-calendar3"></i> Cronograma de Ausencias</h1>
+
+<div class="card">
+    <div class="card-body">
+        <div id="calendar"></div>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <h5><i class="bi bi-info-circle"></i> Leyenda</h5>
+        <span class="badge bg-success me-2">Vacaciones Aprobadas</span>
+        <span class="badge bg-danger me-2">Bajas Aprobadas</span>
+        <span class="badge me-2" style="background-color: #ff9f89; color: black;">Festivos</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var calendarEl = document.getElementById('calendar');
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            locale: 'es',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,listMonth'
+            },
+            events: {{ eventos| tojson }},
+        eventClick: function (info) {
+            alert('Tipo: ' + info.event.title + '\n' +
+                'Usuario: ' + info.event.extendedProps.usuario + '\n' +
+                'Desde: ' + info.event.start.toLocaleDateString() + '\n' +
+                'Hasta: ' + info.event.end.toLocaleDateString());
+        }
+    });
+    calendar.render();
+});
+</script>
+{% endblock %}

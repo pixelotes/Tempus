@@ -1,0 +1,38 @@
+# Excluir todo lo relacionado con Git
+.git/
+.github/
+.gitignore
+
+# Excluir los entornos virtuales
+venv/
+.venv/
+env/
+
+# Excluir la base de datos local (se manejará con un volumen)
+*.db
+*.sqlite
+*.sqlite3
+fichaje.db
+instance/
+
+# Excluir archivos de caché de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Excluir archivos de configuración de Docker (no deben estar DENTRO de la imagen)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Excluir archivos de entorno
+.env
+.env.*
+
+# Excluir documentación
+README.md
+
+# Excluir archivos del sistema operativo
+.DS_Store
+Thumbs.db

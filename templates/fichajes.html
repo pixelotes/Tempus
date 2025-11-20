@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Mis Fichajes{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-clock"></i> Mis Fichajes</h1>
+    <a href="{{ url_for('crear_fichaje') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Nuevo Fichaje
+    </a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-auto">
+                <label class="form-label">Mes</label>
+                <select name="mes" class="form-select" onchange="this.form.submit()">
+                    {% set meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] %}
+                    {% for m in range(1, 13) %}
+                        <option value="{{ m }}" {% if m == mes_actual %}selected{% endif %}>{{ meses[m-1] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <label class="form-label">Año</label>
+                <select name="anio" class="form-select" onchange="this.form.submit()">
+                    {% for a in range(2023, 2026) %}
+                        <option value="{{ a }}" {% if a == anio_actual %}selected{% endif %}>{{ a }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if fichajes %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Entrada</th>
+                        <th>Salida</th>
+                        <th>Horas</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fichaje in fichajes %}
+                    <tr>
+                        <td>{{ fichaje.fecha.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ fichaje.hora_entrada.strftime('%H:%M') }}</td>
+                        <td>{{ fichaje.hora_salida.strftime('%H:%M') }}</td>
+                        <td>{{ "%.2f"|format(fichaje.horas_trabajadas()) }}h</td>
+                        <td>
+                            <a href="{{ url_for('editar_fichaje', id=fichaje.id) }}" class="btn btn-sm btn-warning">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <form method="POST" action="{{ url_for('eliminar_fichaje', id=fichaje.id) }}" style="display:inline;">
+                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('¿Eliminar este fichaje?')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">No hay fichajes registrados.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

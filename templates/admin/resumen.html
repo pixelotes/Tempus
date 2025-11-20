@@ -1,0 +1,113 @@
+<h5 class="mb-0">
+    <i class="bi bi-person-circle"></i> {{ item.usuario.nombre }}
+</h5>
+<small>{{ item.usuario.email }}</small>
+</div>
+<div class="card-body">
+    <h6 class="text-muted mb-3">Información de Vacaciones</h6>
+
+    <div class="d-flex justify-content-between mb-2">
+        <span>Días totales:</span>
+        <strong class="text-primary">{{ item.dias_vacaciones_totales }}</strong>
+    </div>
+
+    <div class="d-flex justify-content-between mb-2">
+        <span>Días disfrutados:</span>
+        <strong class="text-warning">{{ item.dias_disfrutados }}</strong>
+    </div>
+
+    <div class="d-flex justify-content-between mb-3">
+        <span>Días restantes:</span>
+        <strong class="text-success">{{ item.dias_restantes }}</strong>
+    </div>
+
+    <div class="progress mb-3" style="height: 25px;">
+        {% set porcentaje = (item.dias_disfrutados / item.dias_vacaciones_totales * 100) if item.dias_vacaciones_totales
+        > 0 else 0 %}
+        <div class="progress-bar {% if porcentaje > 80 %}bg-danger{% elif porcentaje > 50 %}bg-warning{% else %}bg-success{% endif %}"
+            role="progressbar" style="width: {{ porcentaje }}%" aria-valuenow="{{ porcentaje }}" aria-valuemin="0"
+            aria-valuemax="100">
+            {{ "%.0f"|format(porcentaje) }}%
+        </div>
+    </div>
+
+    <hr>
+
+    <h6 class="text-muted mb-2">Fichajes</h6>
+    <div class="d-flex justify-content-between">
+        <span>Total registrados:</span>
+        <strong>{{ item.fichajes|length }}</strong>
+    </div>
+
+    {% if item.fichajes %}
+    {% set total_horas = item.fichajes|map(attribute='horas_trabajadas')|map('float')|sum %}
+    <div class="d-flex justify-content-between">
+        <span>Horas totales:</span>
+        <strong class="text-info">{{ "%.2f"|format(total_horas) }}h</strong>
+    </div>
+    {% endif %}
+</div>
+</div>
+</div>
+{% endfor %}
+</div>
+
+<!-- Tabla resumen general -->
+<div class="card mt-4">
+    <div class="card-header">
+        <h5><i class="bi bi-table"></i> Tabla Resumen</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Email</th>
+                        <th>Días Totales</th>
+                        <th>Disfrutados</th>
+                        <th>Restantes</th>
+                        <th>% Usado</th>
+                        <th>Fichajes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in resumen_usuarios %}
+                    <tr>
+                        <td><strong>{{ item.usuario.nombre }}</strong></td>
+                        <td><small>{{ item.usuario.email }}</small></td>
+                        <td>{{ item.dias_vacaciones_totales }}</td>
+                        <td><span class="badge bg-warning">{{ item.dias_disfrutados }}</span></td>
+                        <td><span class="badge bg-success">{{ item.dias_restantes }}</span></td>
+                        <td>
+                            {% set porcentaje = (item.dias_disfrutados / item.dias_vacaciones_totales * 100) if
+                            item.dias_vacaciones_totales > 0 else 0 %}
+                            <span
+                                class="badge {% if porcentaje > 80 %}bg-danger{% elif porcentaje > 50 %}bg-warning{% else %}bg-success{% endif %}">
+                                {{ "%.0f"|format(porcentaje) }}%
+                            </span>
+                        </td>
+                        <td>{{ item.fichajes|length }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="table-active">
+                        <td colspan="2"><strong>TOTALES</strong></td>
+                        <td><strong>{{ resumen_usuarios|sum(attribute='dias_vacaciones_totales') }}</strong></td>
+                        <td><strong>{{ resumen_usuarios|sum(attribute='dias_disfrutados') }}</strong></td>
+                        <td><strong>{{ resumen_usuarios|sum(attribute='dias_restantes') }}</strong></td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i> No hay usuarios registrados (excluyendo administradores).
+</div>
+{% endif %}
+{% endblock %}

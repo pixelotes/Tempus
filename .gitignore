@@ -1,0 +1,28 @@
+# Entorno virtual
+venv/
+.venv/
+env/
+
+# Caché de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Archivos de base de datos
+*.db
+*.sqlite
+*.sqlite3
+fichaje.db
+instance/
+
+# Archivos de entorno (¡Importante!)
+.env
+.env.*
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos de desarrollo
+.vscode/

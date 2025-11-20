@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Aprobadores{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-person-check"></i> Gestión de Aprobadores</h1>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5>Asignar Aprobador a Usuario</h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('admin_asignar_aprobador') }}">
+            <div class="row">
+                <div class="col-md-5">
+                    <label class="form-label">Usuario (Empleado)</label>
+                    <select class="form-select" name="usuario_id" required>
+                        <option value="">Seleccionar usuario...</option>
+                        {% for u in usuarios %}
+                            <option value="{{ u.id }}">{{ u.nombre }} ({{ u.email }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">Aprobador (Manager)</label>
+                    <select class="form-select" name="aprobador_id" required>
+                        <option value="">Seleccionar aprobador...</option>
+                        {% for u in usuarios %}
+                            {% if u.rol in ['aprobador', 'admin'] %}
+                            <option value="{{ u.id }}">{{ u.nombre }} (Rol: {{ u.rol }})</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-link-45deg"></i> Asignar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5>Relaciones Actuales</h5>
+    </div>
+    <div class="card-body">
+        {% if aprobadores %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID Relación</th>
+                        <th>Usuario (Empleado)</th>
+                        <th>Aprobador (Manager)</th>
+                        <th>Fecha Asignación</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rel in aprobadores %}
+                    <tr>
+                        <td>{{ rel.id }}</td>
+                        <td><strong>{{ rel.usuario.nombre }}</strong><br><small>{{ rel.usuario.email }}</small></td>
+                        <td><strong>{{ rel.aprobador.nombre }}</strong><br><small>{{ rel.aprobador.email }}</small></td>
+                        <td>{{ rel.fecha_asignacion.strftime('%d/%m/%Y') }}</td>
+                        <td>
+                            <form method="POST" action="{{ url_for('admin_eliminar_aprobador', id=rel.id) }}" style="display:inline;">
+                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('¿Eliminar esta relación?')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            No hay relaciones de aprobación asignadas.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

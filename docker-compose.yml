@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+      
+    environment:
+      # Seguridad
+      - SECRET_KEY=${SECRET_KEY:-tu-clave-secreta-de-produccion}
+      
+      # Configuración de Email (Gmail)
+      - MAIL_SERVER=${MAIL_SERVER:-smtp.gmail.com}
+      - MAIL_PORT=${MAIL_PORT:-587}
+      - MAIL_USE_TLS=${MAIL_USE_TLS:-True}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_DEFAULT_SENDER=${MAIL_DEFAULT_SENDER}
+      
+      # Google Calendar (opcional)
+      - GOOGLE_CALENDAR_ID=${GOOGLE_CALENDAR_ID:-primary}
+      
+    volumes:
+      - db_data:/app
+      
+    container_name: fichador_web
+
+volumes:
+  db_data:

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Mis Bajas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-bandaid"></i> Mis Solicitudes de Baja</h1>
+    <a href="{{ url_for('solicitar_baja') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Nueva Solicitud de Baja
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if solicitudes %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Fecha Solicitud</th>
+                        <th>Desde</th>
+                        <th>Hasta</th>
+                        <th>Días</th>
+                        <th>Motivo</th>
+                        <th>Estado</th>
+                        <th>Aprobador</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sol in solicitudes %}
+                    <tr>
+                        <td>{{ sol.fecha_solicitud.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td>{{ sol.fecha_inicio.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ sol.fecha_fin.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ sol.dias_solicitados }}</td>
+                        <td>{{ sol.motivo }}</td>
+                        <td>
+                            {% if sol.estado == 'pendiente' %}
+                            <span class="badge bg-warning">Pendiente</span>
+                            {% elif sol.estado == 'aprobada' %}
+                            <span class="badge bg-success">Aprobada</span>
+                            {% else %}
+                            <span class="badge bg-danger">Rechazada</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if sol.aprobador %}
+                            {{ sol.aprobador.nombre }}
+                            <br><small class="text-muted">{{ sol.fecha_respuesta.strftime('%d/%m/%Y') if sol.fecha_respuesta else '' }}</small>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% if sol.comentarios %}
+                    <tr>
+                        <td colspan="7" class="bg-light">
+                            <small><strong>Comentarios:</strong> {{ sol.comentarios }}</small>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">No has realizado ninguna solicitud de baja.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
