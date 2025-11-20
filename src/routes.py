@@ -595,3 +595,34 @@ def admin_eliminar_festivo(id):
     db.session.commit()
     flash('Festivo eliminado correctamente', 'success')
     return redirect(url_for('admin_festivos'))
+
+@app.route('/perfil', methods=['GET', 'POST'])
+@login_required
+def perfil():
+    if request.method == 'POST':
+        current_password = request.form.get('current_password')
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+        
+        # Validate current password
+        if not check_password_hash(current_user.password, current_password):
+            flash('La contraseña actual es incorrecta', 'danger')
+            return redirect(url_for('perfil'))
+        
+        # Validate new password matches confirmation
+        if new_password != confirm_password:
+            flash('Las contraseñas nuevas no coinciden', 'danger')
+            return redirect(url_for('perfil'))
+        
+        # Validate password length
+        if len(new_password) < 6:
+            flash('La contraseña debe tener al menos 6 caracteres', 'danger')
+            return redirect(url_for('perfil'))
+        
+        # Update password
+        current_user.password = generate_password_hash(new_password)
+        db.session.commit()
+        flash('Contraseña actualizada correctamente', 'success')
+        return redirect(url_for('perfil'))
+    
+    return render_template('perfil.html')

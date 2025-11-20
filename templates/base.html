@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,6 +12,7 @@
             padding-top: 60px;
             background-color: #f8f9fa;
         }
+
         .sidebar {
             position: fixed;
             top: 56px;
@@ -21,6 +23,7 @@
             padding: 20px 0;
             overflow-y: auto;
         }
+
         .sidebar a {
             color: #adb5bd;
             text-decoration: none;
@@ -28,18 +31,23 @@
             display: block;
             transition: all 0.3s;
         }
-        .sidebar a:hover, .sidebar a.active {
+
+        .sidebar a:hover,
+        .sidebar a.active {
             background-color: #495057;
             color: #fff;
         }
+
         .main-content {
             margin-left: 250px;
             padding: 20px;
         }
+
         .card {
             margin-bottom: 20px;
-            box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
         }
+
         @media (max-width: 768px) {
             .sidebar {
                 width: 100%;
@@ -47,6 +55,7 @@
                 position: relative;
                 top: 0;
             }
+
             .main-content {
                 margin-left: 0;
             }
@@ -54,6 +63,7 @@
     </style>
     {% block extra_css %}{% endblock %}
 </head>
+
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
         <div class="container-fluid">
@@ -67,14 +77,18 @@
                 <ul class="navbar-nav ms-auto">
                     {% if current_user.is_authenticated %}
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
+                            data-bs-toggle="dropdown">
                             <i class="bi bi-person-circle"></i> {{ current_user.nombre }}
                             <span class="badge bg-secondary">{{ current_user.rol }}</span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{{ url_for('perfil') }}">
+                                    <i class="bi bi-key"></i> Cambiar contraseña
+                                </a></li>
                             <li><a class="dropdown-item" href="{{ url_for('logout') }}">
-                                <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
-                            </a></li>
+                                    <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
+                                </a></li>
                         </ul>
                     </li>
                     {% endif %}
@@ -85,58 +99,62 @@
 
     {% if current_user.is_authenticated %}
     <div class="sidebar">
-        <a href="{{ url_for('index') }}" {% if request.endpoint == 'index' %}class="active"{% endif %}>
+        <a href="{{ url_for('index') }}" {% if request.endpoint=='index' %}class="active" {% endif %}>
             <i class="bi bi-house-door"></i> Inicio
         </a>
-        
+
         <div class="text-muted px-3 mt-3 mb-2 small">FICHAJE</div>
-        <a href="{{ url_for('fichajes') }}" {% if 'fichajes' in request.endpoint %}class="active"{% endif %}>
+        <a href="{{ url_for('fichajes') }}" {% if 'fichajes' in request.endpoint %}class="active" {% endif %}>
             <i class="bi bi-clock"></i> Mis Fichajes
         </a>
         <a href="{{ url_for('crear_fichaje') }}">
             <i class="bi bi-plus-circle"></i> Nuevo Fichaje
         </a>
-        <a href="{{ url_for('resumen') }}" {% if request.endpoint == 'resumen' %}class="active"{% endif %}>
+        <a href="{{ url_for('resumen') }}" {% if request.endpoint=='resumen' %}class="active" {% endif %}>
             <i class="bi bi-bar-chart"></i> Resumen
         </a>
-        
+
         <div class="text-muted px-3 mt-3 mb-2 small">AUSENCIAS</div>
-        <a href="{{ url_for('vacaciones') }}" {% if request.endpoint == 'vacaciones' %}class="active"{% endif %}>
+        <a href="{{ url_for('vacaciones') }}" {% if request.endpoint=='vacaciones' %}class="active" {% endif %}>
             <i class="bi bi-calendar-check"></i> Mis Vacaciones
         </a>
         <a href="{{ url_for('solicitar_vacaciones') }}">
             <i class="bi bi-plus-circle"></i> Solicitar Vacaciones
         </a>
-        
-        <a href="{{ url_for('bajas') }}" {% if request.endpoint == 'bajas' %}class="active"{% endif %}>
+
+        <a href="{{ url_for('bajas') }}" {% if request.endpoint=='bajas' %}class="active" {% endif %}>
             <i class="bi bi-bandaid"></i> Mis Bajas
         </a>
         <a href="{{ url_for('solicitar_baja') }}">
             <i class="bi bi-plus-circle"></i> Solicitar Baja
         </a>
-        <a href="{{ url_for('cronograma') }}" {% if request.endpoint == 'cronograma' %}class="active"{% endif %}>
+        <a href="{{ url_for('cronograma') }}" {% if request.endpoint=='cronograma' %}class="active" {% endif %}>
             <i class="bi bi-calendar3"></i> Cronograma
         </a>
-        
+
         {% if current_user.rol in ['aprobador', 'admin'] %}
         <div class="text-muted px-3 mt-3 mb-2 small">APROBACIÓN</div>
-        <a href="{{ url_for('aprobar_solicitudes') }}" {% if request.endpoint == 'aprobar_solicitudes' %}class="active"{% endif %}>
+        <a href="{{ url_for('aprobar_solicitudes') }}" {% if request.endpoint=='aprobar_solicitudes' %}class="active" {%
+            endif %}>
             <i class="bi bi-check-circle"></i> Aprobar Solicitudes
         </a>
         {% endif %}
-        
+
         {% if current_user.rol == 'admin' %}
         <div class="text-muted px-3 mt-3 mb-2 small">ADMINISTRACIÓN</div>
-        <a href="{{ url_for('admin_usuarios') }}" {% if 'admin_usuarios' in request.endpoint %}class="active"{% endif %}>
+        <a href="{{ url_for('admin_usuarios') }}" {% if 'admin_usuarios' in request.endpoint %}class="active" {% endif
+            %}>
             <i class="bi bi-people"></i> Usuarios
         </a>
-        <a href="{{ url_for('admin_aprobadores') }}" {% if 'admin_aprobadores' in request.endpoint %}class="active"{% endif %}>
+        <a href="{{ url_for('admin_aprobadores') }}" {% if 'admin_aprobadores' in request.endpoint %}class="active" {%
+            endif %}>
             <i class="bi bi-person-check"></i> Aprobadores
         </a>
-        <a href="{{ url_for('admin_festivos') }}" {% if 'admin_festivos' in request.endpoint %}class="active"{% endif %}>
+        <a href="{{ url_for('admin_festivos') }}" {% if 'admin_festivos' in request.endpoint %}class="active" {% endif
+            %}>
             <i class="bi bi-calendar-event"></i> Festivos
         </a>
-        <a href="{{ url_for('admin_resumen') }}" {% if request.endpoint == 'admin_resumen' %}class="active"{% endif %}>
+        <a href="{{ url_for('admin_resumen') }}" {% if request.endpoint=='admin_resumen' %}class="active" {% endif %}>
             <i class="bi bi-file-earmark-bar-graph"></i> Resumen Global
         </a>
         {% endif %}
@@ -145,14 +163,15 @@
 
     <div class="{% if current_user.is_authenticated %}main-content{% else %}container mt-5{% endif %}">
         {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-                {% endfor %}
-            {% endif %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show"
+            role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
         {% endwith %}
 
         {% block content %}{% endblock %}
@@ -161,4 +180,5 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     {% block extra_js %}{% endblock %}
 </body>
+
 </html>

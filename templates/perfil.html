@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Mi Perfil{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="bi bi-person-circle"></i> Mi Perfil</h4>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <div class="display-1 text-muted">
+                        <i class="bi bi-person-circle"></i>
+                    </div>
+                    <h3>{{ current_user.nombre }}</h3>
+                    <p class="text-muted">{{ current_user.email }}</p>
+                    <span class="badge bg-secondary">{{ current_user.rol|upper }}</span>
+                </div>
+
+                <hr>
+
+                <h5 class="mb-3"><i class="bi bi-key"></i> Cambiar Contraseña</h5>
+
+                <form method="POST" action="{{ url_for('perfil') }}">
+                    <div class="mb-3">
+                        <label for="current_password" class="form-label">Contraseña Actual</label>
+                        <input type="password" class="form-control" id="current_password" name="current_password"
+                            required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="new_password" class="form-label">Nueva Contraseña</label>
+                        <input type="password" class="form-control" id="new_password" name="new_password" required
+                            minlength="6">
+                        <div class="form-text">La contraseña debe tener al menos 6 caracteres.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">Confirmar Nueva Contraseña</label>
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password"
+                            required minlength="6">
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save"></i> Guardar Cambios
+                        </button>
+                        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                            Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
