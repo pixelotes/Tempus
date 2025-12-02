@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}Nuevo Fichaje{% endblock %}
+{% block title %}Editar Fichaje{% endblock %}
 
 {% block content %}
-<h1 class="mb-4"><i class="bi bi-plus-circle"></i> Nuevo Fichaje</h1>
+<h1 class="mb-4"><i class="bi bi-pencil"></i> Editar Fichaje</h1>
 
 <div class="card">
     <div class="card-body">
@@ -11,27 +11,30 @@
             <div class="mb-3">
                 <label class="form-label">Fecha</label>
                 <input type="date" class="form-control" name="fecha" required
-                    value="{{ request.form.get('fecha', '') or now().strftime('%Y-%m-%d') }}">
+                    value="{{ request.form.get('fecha', fichaje.fecha.strftime('%Y-%m-%d')) }}">
             </div>
 
             <div class="row">
                 <div class="col-md-6">
                     <div class="mb-3">
                         <label class="form-label">Hora de Entrada</label>
-                        <input type="time" class="form-control" name="hora_entrada" required>
+                        <input type="time" class="form-control" name="hora_entrada" required
+                            value="{{ request.form.get('hora_entrada', fichaje.hora_entrada.strftime('%H:%M')) }}">
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="mb-3">
                         <label class="form-label">Hora de Salida</label>
-                        <input type="time" class="form-control" name="hora_salida" required>
+                        <input type="time" class="form-control" name="hora_salida" required
+                            value="{{ request.form.get('hora_salida', fichaje.hora_salida.strftime('%H:%M')) }}">
                     </div>
                 </div>
             </div>
 
             <div class="mb-3">
                 <label class="form-label">Motivo del cambio <span class="text-danger">*</span></label>
-                <textarea class="form-control" name="motivo" rows="2" required></textarea>
+                <textarea class="form-control" name="motivo" rows="2"
+                    required>{{ request.form.get('motivo', '') }}</textarea>
                 <div class="form-text">Por favor, indica el motivo de la modificación.</div>
             </div>
 

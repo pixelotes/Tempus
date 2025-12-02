@@ -146,9 +146,31 @@ def editar_fichaje(id):
         return redirect(url_for('fichajes'))
     
     if request.method == 'POST':
-        fichaje.fecha = datetime.strptime(request.form.get('fecha'), '%Y-%m-%d').date()
-        fichaje.hora_entrada = datetime.strptime(request.form.get('hora_entrada'), '%H:%M').time()
-        fichaje.hora_salida = datetime.strptime(request.form.get('hora_salida'), '%H:%M').time()
+        # Capturar valores anteriores para el log
+        anterior_entrada = fichaje.hora_entrada
+        anterior_salida = fichaje.hora_salida
+        
+        # Nuevos valores
+        nueva_fecha = datetime.strptime(request.form.get('fecha'), '%Y-%m-%d').date()
+        nueva_entrada = datetime.strptime(request.form.get('hora_entrada'), '%H:%M').time()
+        nueva_salida = datetime.strptime(request.form.get('hora_salida'), '%H:%M').time()
+        motivo = request.form.get('motivo')
+        
+        # Crear registro de auditoría
+        log = FichajeLog(
+            fichaje_id=fichaje.id,
+            editor_id=current_user.id,
+            anterior_entrada=anterior_entrada,
+            anterior_salida=anterior_salida,
+            motivo=motivo
+        )
+        db.session.add(log)
+        
+        # Actualizar fichaje
+        fichaje.fecha = nueva_fecha
+        fichaje.hora_entrada = nueva_entrada
+        fichaje.hora_salida = nueva_salida
+        fichaje.editado = True
         
         db.session.commit()
         flash('Fichaje actualizado correctamente', 'success')
