@@ -59,6 +59,7 @@ class Fichaje(db.Model):
     hora_entrada = db.Column(db.Time, nullable=False)
     hora_salida = db.Column(db.Time, nullable=False)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    editado = db.Column(db.Boolean, default=False)
     
     def __repr__(self):
         return f'<Fichaje {self.fecha} - {self.usuario.nombre}>'
@@ -74,6 +75,29 @@ class Fichaje(db.Model):
         
         diferencia = salida - entrada
         return diferencia.total_seconds() / 3600  # Convertir a horas
+
+
+class FichajeLog(db.Model):
+    __tablename__ = 'fichajes_log'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    fichaje_id = db.Column(db.Integer, db.ForeignKey('fichajes.id'), nullable=False)
+    editor_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    fecha_cambio = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Valores antiguos
+    anterior_entrada = db.Column(db.Time)
+    anterior_salida = db.Column(db.Time)
+    anterior_pausa = db.Column(db.Integer) # En minutos
+    
+    motivo = db.Column(db.Text)
+    
+    # Relaciones
+    fichaje = db.relationship('Fichaje', backref=db.backref('logs', lazy=True))
+    editor = db.relationship('Usuario', foreign_keys=[editor_id])
+    
+    def __repr__(self):
+        return f'<FichajeLog {self.id} - Fichaje {self.fichaje_id}>'
 
 
 class SolicitudVacaciones(db.Model):
