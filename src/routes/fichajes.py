@@ -92,6 +92,7 @@ def crear():
 def editar(id):
     fichaje_actual = Fichaje.query.get_or_404(id)
     
+    # Seguridad: Solo dueño o admin
     if fichaje_actual.usuario_id != current_user.id and current_user.rol != 'admin':
         flash('No tienes permisos para editar este fichaje', 'danger')
         return redirect(url_for('fichajes.listar'))
@@ -100,11 +101,15 @@ def editar(id):
         flash('Solo se puede editar la versión vigente de un fichaje.', 'warning')
         return redirect(url_for('fichajes.listar'))
     
+    # CAPTURAR REDIRECT (Para volver al Admin Panel si venimos de allí)
+    next_page = request.args.get('next') or request.form.get('next')
+
     if request.method == 'POST':
         motivo = request.form.get('motivo')
         if not motivo:
             flash('El motivo es obligatorio para rectificar un fichaje.', 'danger')
-            return redirect(url_for('fichajes.editar', id=id))
+            # Mantenemos el next en caso de error
+            return redirect(url_for('fichajes.editar', id=id, next=next_page))
 
         try:
             pausa = int(request.form.get('pausa') or 0)
@@ -132,9 +137,13 @@ def editar(id):
         db.session.add(nuevo_fichaje)
         db.session.commit()
         flash('Fichaje rectificado correctamente (histórico guardado).', 'success')
+        
+        # REDIRECCIÓN INTELIGENTE
+        if next_page:
+            return redirect(next_page)
         return redirect(url_for('fichajes.listar'))
     
-    return render_template('editar_fichaje.html', fichaje=fichaje_actual, now=datetime.now)
+    return render_template('editar_fichaje.html', fichaje=fichaje_actual, now=datetime.now, next_url=next_page)
 
 @fichajes_bp.route('/fichajes/eliminar/<int:id>', methods=['POST'])
 @login_required
@@ -149,6 +158,9 @@ def eliminar(id):
         flash('No se puede eliminar una versión histórica.', 'danger')
         return redirect(url_for('fichajes.listar'))
     
+    # CAPTURAR REDIRECT
+    next_page = request.args.get('next')
+    
     # 1. SOFT DELETE: Marcar actual como obsoleto
     fichaje_actual.es_actual = False
     
@@ -160,7 +172,7 @@ def eliminar(id):
         version=fichaje_actual.version + 1,
         es_actual=True,
         tipo_accion='eliminacion',
-        motivo_rectificacion="Eliminado por el usuario",
+        motivo_rectificacion="Eliminado por el usuario/admin",
         fecha=fichaje_actual.fecha,
         # Mantenemos datos originales para saber qué se borró
         hora_entrada=fichaje_actual.hora_entrada,
@@ -171,4 +183,8 @@ def eliminar(id):
     db.session.add(fichaje_borrado)
     db.session.commit()
     flash('Fichaje eliminado correctamente.', 'success')
+    
+    # REDIRECCIÓN INTELIGENTE
+    if next_page:
+        return redirect(next_page)
     return redirect(url_for('fichajes.listar'))

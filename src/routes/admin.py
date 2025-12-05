@@ -243,3 +243,51 @@ def admin_auditoria():
     logs = query.order_by(Fichaje.fecha_creacion.desc()).all()
     
     return render_template('admin/auditoria.html', logs=logs)
+
+@admin_bp.route('/admin/admin_fichajes', methods=['GET'])
+@admin_required
+def admin_fichajes():
+    # 1. Obtener filtros de la URL o defaults
+    usuario_id = request.args.get('usuario_id', type=int)
+    
+    hoy = date.today()
+    try:
+        mes = int(request.args.get('mes', hoy.month))
+        anio = int(request.args.get('anio', hoy.year))
+    except ValueError:
+        mes = hoy.month
+        anio = hoy.year
+        
+    # 2. Calcular rango de fechas
+    _, ultimo_dia = monthrange(anio, mes)
+    fecha_inicio = date(anio, mes, 1)
+    fecha_fin = date(anio, mes, ultimo_dia)
+    
+    # 3. Query base
+    query = Fichaje.query.filter(
+        Fichaje.es_actual == True,
+        Fichaje.tipo_accion != 'eliminacion',
+        Fichaje.fecha >= fecha_inicio,
+        Fichaje.fecha <= fecha_fin
+    )
+    
+    # 4. Aplicar filtro de usuario si está seleccionado
+    if usuario_id:
+        query = query.filter(Fichaje.usuario_id == usuario_id)
+    
+    # Ordenar
+    fichajes = query.order_by(Fichaje.fecha.desc(), Fichaje.hora_entrada.asc()).all()
+    
+    # 5. Cargar lista de usuarios para el selector
+    usuarios = Usuario.query.order_by(Usuario.nombre).all()
+    
+    # 6. Calcular totales para el resumen rápido
+    total_horas = sum(f.horas_trabajadas() for f in fichajes)
+    
+    return render_template('/admin/admin_fichajes.html',
+                           fichajes=fichajes,
+                           usuarios=usuarios,
+                           usuario_seleccionado=usuario_id,
+                           mes_actual=mes,
+                           anio_actual=anio,
+                           total_horas=total_horas)
