@@ -2,7 +2,7 @@ from flask import render_template, request, redirect, url_for, flash
 from flask_login import current_user
 from werkzeug.security import generate_password_hash
 from sqlalchemy import func
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from calendar import monthrange
 
 from src import db, admin_required
@@ -139,7 +139,7 @@ def admin_eliminar_festivo(id):
     flash('Festivo eliminado correctamente', 'success')
     return redirect(url_for('admin.admin_festivos'))
 
-# --- TIPOS DE AUSENCIA (NUEVO) ---
+# --- TIPOS DE AUSENCIA ---
 @admin_bp.route('/admin/tipos-ausencia', methods=['GET', 'POST'])
 @admin_required
 def admin_tipos_ausencia():
@@ -170,8 +170,6 @@ def admin_tipos_ausencia():
         return redirect(url_for('admin.admin_tipos_ausencia'))
         
     tipos = TipoAusencia.query.all()
-    # Si no existe el template específico, crearemos uno o usaremos una vista genérica
-    # Por ahora asumo que crearás templates/admin/tipos_ausencia.html
     return render_template('admin/tipos_ausencia.html', tipos=tipos)
 
 # --- RESUMEN ---
@@ -220,17 +218,15 @@ def admin_resumen():
     
     return render_template('admin/resumen.html', resumen_usuarios=resumen_usuarios, now=datetime.now, mes_actual=mes, anio_actual=anio)
 
-# --- AUDITORÍA (ADAPTADA) ---
 @admin_bp.route('/admin/auditoria')
 @admin_required
 def admin_auditoria():
     usuario_nombre = request.args.get('usuario')
     fecha_inicio = request.args.get('fecha_inicio')
     fecha_fin = request.args.get('fecha_fin')
-    
-    # Consultamos la tabla Fichaje buscando versiones históricas
-    # Se considera histórico si version > 1 o si es_actual=False (versiones obsoletas)
-    query = Fichaje.query.join(Usuario).filter(
+
+    # Unimos con Usuario usando el usuario_id (el dueño del fichaje)
+    query = Fichaje.query.join(Usuario, Fichaje.usuario_id == Usuario.id).filter(
         (Fichaje.version > 1) | (Fichaje.tipo_accion != 'creacion')
     )
     
@@ -241,10 +237,9 @@ def admin_auditoria():
         query = query.filter(Fichaje.fecha_creacion >= datetime.strptime(fecha_inicio, '%Y-%m-%d'))
         
     if fecha_fin:
-        fin = datetime.strptime(fecha_fin, '%Y-%m-%d')
+        fin = datetime.strptime(fecha_fin, '%Y-%m-%d') + timedelta(days=1)
         query = query.filter(Fichaje.fecha_creacion < fin)
         
-    # Ordenar por fecha de creación del registro de auditoría (el momento de la edición)
     logs = query.order_by(Fichaje.fecha_creacion.desc()).all()
     
     return render_template('admin/auditoria.html', logs=logs)

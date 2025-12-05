@@ -45,6 +45,7 @@ def crear():
         
         fichaje = Fichaje(
             usuario_id=current_user.id,
+            editor_id=current_user.id,
             grupo_id=str(uuid.uuid4()),  # Generamos UUID único para el grupo
             version=1,
             es_actual=True,
@@ -88,6 +89,7 @@ def editar(id):
         # 2. Crear nueva versión corregida
         nuevo_fichaje = Fichaje(
             usuario_id=fichaje_actual.usuario_id,
+            editor_id=current_user.id,
             grupo_id=fichaje_actual.grupo_id,   # Mantenemos el vínculo
             version=fichaje_actual.version + 1, # Incrementamos versión
             es_actual=True,
@@ -126,6 +128,7 @@ def eliminar(id):
     
     fichaje_borrado = Fichaje(
         usuario_id=fichaje_actual.usuario_id,
+        editor_id=current_user.id,
         grupo_id=fichaje_actual.grupo_id,
         version=fichaje_actual.version + 1,
         es_actual=True,

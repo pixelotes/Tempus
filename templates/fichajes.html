@@ -67,11 +67,15 @@
                         </td>
                         <td>
                             {% if fichaje.version > 1 %}
-                            <span class="badge bg-warning text-dark" title="Rectificado (v{{ fichaje.version }})">
-                                <i class="bi bi-pencil-square"></i> Rectificado
-                            </span>
+                                {% set editor_nombre = fichaje.editor.nombre if fichaje.editor else 'Desconocido' %}
+                                {% set texto_rectificado = 'Rectificado por ' ~ editor_nombre %}
+                                
+                                <span class="badge bg-warning text-dark" 
+                                      title="Versión {{ fichaje.version }} - {{ fichaje.motivo_rectificacion }}">
+                                    <i class="bi bi-pencil-square"></i> {{ texto_rectificado }}
+                                </span>
                             {% else %}
-                            <span class="badge bg-success">Original</span>
+                                <span class="badge bg-success">Original</span>
                             {% endif %}
                         </td>
                         <td>
@@ -98,7 +102,6 @@
 </div>
 <script>
     function exportTableToCSV(filename) {
-        // ... (Mismo script que tenías) ...
         var csv = [];
         var rows = document.querySelectorAll("table tr");
         for (var i = 0; i < rows.length; i++) {
