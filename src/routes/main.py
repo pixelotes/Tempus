@@ -3,18 +3,18 @@ from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta, date
 from src import db
-from src.models import Usuario, SolicitudVacaciones, SolicitudBaja, Aprobador, Festivo
+from src.models import Usuario, SolicitudVacaciones, SolicitudBaja, Aprobador, Festivo, Fichaje # <--- Añadido Fichaje
 from src.utils import calcular_dias_laborables
 from . import main_bp
 
 @main_bp.route('/')
 @login_required
 def index():
+    # --- 1. LÓGICA DE AVISOS PARA APROBADORES ---
     solicitudes_pendientes_count = 0
     if current_user.rol in ['aprobador', 'admin']:
         usuarios_ids = [r.usuario_id for r in Aprobador.query.filter_by(aprobador_id=current_user.id).all()]
         
-        # Filtramos solo las pendientes que sean ACTUALES (no versiones viejas)
         count_vac = SolicitudVacaciones.query.filter(
             SolicitudVacaciones.usuario_id.in_(usuarios_ids),
             SolicitudVacaciones.estado == 'pendiente',
@@ -28,8 +28,34 @@ def index():
         ).count()
         
         solicitudes_pendientes_count = count_vac + count_bajas
+
+    # --- 2. LÓGICA DE RESUMEN DE FICHAJES (Movido aquí) ---
+    hoy = date.today()
+    inicio_semana = hoy - timedelta(days=hoy.weekday())
     
-    return render_template('index.html', solicitudes_pendientes_count=solicitudes_pendientes_count)
+    fichajes_hoy = Fichaje.query.filter(
+        Fichaje.usuario_id == current_user.id,
+        Fichaje.fecha == hoy,
+        Fichaje.es_actual == True,
+        Fichaje.tipo_accion != 'eliminacion'
+    ).all()
+    horas_hoy = sum([f.horas_trabajadas() for f in fichajes_hoy])
+    
+    fichajes_semana = Fichaje.query.filter(
+        Fichaje.usuario_id == current_user.id,
+        Fichaje.fecha >= inicio_semana,
+        Fichaje.fecha <= hoy,
+        Fichaje.es_actual == True,
+        Fichaje.tipo_accion != 'eliminacion'
+    ).all()
+    horas_semana = sum([f.horas_trabajadas() for f in fichajes_semana])
+    
+    return render_template('index.html', 
+                           solicitudes_pendientes_count=solicitudes_pendientes_count,
+                           horas_hoy=horas_hoy, 
+                           horas_semana=horas_semana,
+                           fichajes_hoy=fichajes_hoy,
+                           fichajes_semana=fichajes_semana)
 
 @main_bp.route('/perfil', methods=['GET', 'POST'])
 @login_required
@@ -61,7 +87,6 @@ def perfil():
 @main_bp.route('/cronograma')
 @login_required
 def cronograma():
-    # Solo mostramos versiones actuales y aprobadas
     solicitudes_vac = SolicitudVacaciones.query.filter_by(estado='aprobada', es_actual=True).all()
     solicitudes_bajas = SolicitudBaja.query.filter_by(estado='aprobada', es_actual=True).all()
     
@@ -76,7 +101,6 @@ def cronograma():
         })
         
     for s in solicitudes_bajas:
-        # Mostramos el tipo de ausencia si existe, si no "Baja"
         titulo = s.tipo_ausencia.nombre if s.tipo_ausencia else "Baja"
         eventos.append({
             'title': f"{s.usuario.nombre} - {titulo}",

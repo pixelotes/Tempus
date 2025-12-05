@@ -104,30 +104,15 @@
             <i class="bi bi-house-door"></i> Inicio
         </a>
 
-        <div class="text px-3 mt-3 mb-2 small" style="color: white;">FICHAJE</div>
+        <div class="text px-3 mt-3 mb-2 small" style="color: white;">PRINCIPAL</div>
         <a href="{{ url_for('fichajes.listar') }}" {% if 'fichajes' in request.endpoint %}class="active" {% endif %}>
             <i class="bi bi-clock"></i> Mis Fichajes
         </a>
-        <a href="{{ url_for('fichajes.crear') }}">
-            <i class="bi bi-plus-circle"></i> Nuevo Fichaje
-        </a>
-        <a href="{{ url_for('fichajes.resumen') }}" {% if request.endpoint=='fichajes.resumen' %}class="active" {% endif %}>
-            <i class="bi bi-bar-chart"></i> Resumen
-        </a>
-
-        <div class="text px-3 mt-3 mb-2 small" style="color: white;">AUSENCIAS</div>
         <a href="{{ url_for('ausencias.listar_vacaciones') }}" {% if 'vacaciones' in request.endpoint %}class="active" {% endif %}>
             <i class="bi bi-calendar-check"></i> Mis Vacaciones
         </a>
-        <a href="{{ url_for('ausencias.solicitar_vacaciones') }}">
-            <i class="bi bi-plus-circle"></i> Solicitar Vacaciones
-        </a>
-
         <a href="{{ url_for('ausencias.listar_bajas') }}" {% if 'bajas' in request.endpoint %}class="active" {% endif %}>
-            <i class="bi bi-bandaid"></i> Mis Bajas
-        </a>
-        <a href="{{ url_for('ausencias.solicitar_baja') }}">
-            <i class="bi bi-plus-circle"></i> Solicitar Baja
+            <i class="bi bi-bandaid"></i> Mis Ausencias
         </a>
         <a href="{{ url_for('main.cronograma') }}" {% if request.endpoint=='main.cronograma' %}class="active" {% endif %}>
             <i class="bi bi-calendar3"></i> Cronograma

@@ -26,7 +26,6 @@ def listar():
         fecha_inicio = date(anio, mes, 1)
         fecha_fin = date(anio, mes, ultimo_dia)
 
-    # FILTRO IMPORTANTE: Solo es_actual=True y NO eliminados
     fichajes = Fichaje.query.filter_by(usuario_id=current_user.id, es_actual=True)\
         .filter(Fichaje.tipo_accion != 'eliminacion')\
         .filter(Fichaje.fecha >= fecha_inicio)\
@@ -43,16 +42,22 @@ def crear():
         hora_entrada = datetime.strptime(request.form.get('hora_entrada'), '%H:%M').time()
         hora_salida = datetime.strptime(request.form.get('hora_salida'), '%H:%M').time()
         
+        try:
+            pausa = int(request.form.get('pausa') or 0)
+        except ValueError:
+            pausa = 0
+        
         fichaje = Fichaje(
             usuario_id=current_user.id,
             editor_id=current_user.id,
-            grupo_id=str(uuid.uuid4()),  # Generamos UUID único para el grupo
+            grupo_id=str(uuid.uuid4()),
             version=1,
             es_actual=True,
             tipo_accion='creacion',
             fecha=fecha,
             hora_entrada=hora_entrada,
-            hora_salida=hora_salida
+            hora_salida=hora_salida,
+            pausa=pausa
         )
         
         db.session.add(fichaje)
@@ -71,7 +76,6 @@ def editar(id):
         flash('No tienes permisos para editar este fichaje', 'danger')
         return redirect(url_for('fichajes.listar'))
     
-    # Validamos que se edita la versión actual
     if not fichaje_actual.es_actual:
         flash('Solo se puede editar la versión vigente de un fichaje.', 'warning')
         return redirect(url_for('fichajes.listar'))
@@ -82,30 +86,30 @@ def editar(id):
             flash('El motivo es obligatorio para rectificar un fichaje.', 'danger')
             return redirect(url_for('fichajes.editar', id=id))
 
-        # NUEVA LÓGICA DE INMUTABILIDAD
-        # 1. Obsoletar registro actual
+        try:
+            pausa = int(request.form.get('pausa') or 0)
+        except ValueError:
+            pausa = 0
+
         fichaje_actual.es_actual = False
         
-        # 2. Crear nueva versión corregida
         nuevo_fichaje = Fichaje(
             usuario_id=fichaje_actual.usuario_id,
             editor_id=current_user.id,
-            grupo_id=fichaje_actual.grupo_id,   # Mantenemos el vínculo
-            version=fichaje_actual.version + 1, # Incrementamos versión
+            grupo_id=fichaje_actual.grupo_id,
+            version=fichaje_actual.version + 1,
             es_actual=True,
             tipo_accion='modificacion',
             motivo_rectificacion=motivo,
-            
-            # Nuevos datos
             fecha=datetime.strptime(request.form.get('fecha'), '%Y-%m-%d').date(),
             hora_entrada=datetime.strptime(request.form.get('hora_entrada'), '%H:%M').time(),
             hora_salida=datetime.strptime(request.form.get('hora_salida'), '%H:%M').time(),
-            pausa=fichaje_actual.pausa # Mantenemos pausa por defecto si no está en form
+            pausa=pausa
         )
         
         db.session.add(nuevo_fichaje)
         db.session.commit()
-        flash('Fichaje rectificado correctamente (se ha guardado histórico).', 'success')
+        flash('Fichaje rectificado correctamente.', 'success')
         return redirect(url_for('fichajes.listar'))
     
     return render_template('editar_fichaje.html', fichaje=fichaje_actual, now=datetime.now)
@@ -123,7 +127,6 @@ def eliminar(id):
         flash('No se puede eliminar una versión histórica.', 'danger')
         return redirect(url_for('fichajes.listar'))
     
-    # SOFT DELETE con Trazabilidad
     fichaje_actual.es_actual = False
     
     fichaje_borrado = Fichaje(
@@ -132,46 +135,15 @@ def eliminar(id):
         grupo_id=fichaje_actual.grupo_id,
         version=fichaje_actual.version + 1,
         es_actual=True,
-        tipo_accion='eliminacion', # Flag de borrado
+        tipo_accion='eliminacion',
         motivo_rectificacion="Eliminado por el usuario",
         fecha=fichaje_actual.fecha,
-        hora_entrada=fichaje_actual.hora_entrada, # Guardamos referencia de qué se borró
+        hora_entrada=fichaje_actual.hora_entrada,
         hora_salida=fichaje_actual.hora_salida,
         pausa=fichaje_actual.pausa
     )
     
     db.session.add(fichaje_borrado)
     db.session.commit()
-    flash('Fichaje eliminado correctamente (trazabilidad guardada).', 'success')
+    flash('Fichaje eliminado correctamente.', 'success')
     return redirect(url_for('fichajes.listar'))
-
-@fichajes_bp.route('/resumen')
-@login_required
-def resumen():
-    hoy = date.today()
-    inicio_semana = hoy - timedelta(days=hoy.weekday())
-    
-    # Filtrar solo actuales y no eliminados
-    fichajes_hoy = Fichaje.query.filter(
-        Fichaje.usuario_id == current_user.id,
-        Fichaje.fecha == hoy,
-        Fichaje.es_actual == True,
-        Fichaje.tipo_accion != 'eliminacion'
-    ).all()
-    horas_hoy = sum([f.horas_trabajadas() for f in fichajes_hoy])
-    
-    fichajes_semana = Fichaje.query.filter(
-        Fichaje.usuario_id == current_user.id,
-        Fichaje.fecha >= inicio_semana,
-        Fichaje.fecha <= hoy,
-        Fichaje.es_actual == True,
-        Fichaje.tipo_accion != 'eliminacion'
-    ).all()
-    horas_semana = sum([f.horas_trabajadas() for f in fichajes_semana])
-    
-    return render_template('resumen.html', 
-                         horas_hoy=horas_hoy, 
-                         horas_semana=horas_semana,
-                         fichajes_hoy=fichajes_hoy,
-                         fichajes_semana=fichajes_semana,
-                         now=datetime.now)

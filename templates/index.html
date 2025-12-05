@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1 class="mb-4">Bienvenido, {{ current_user.nombre }}</h1>
+<h1 class="mb-4 bi bi-house-door">Bienvenido, {{ current_user.nombre }}</h1>
 
 <div class="row">
     <div class="col-md-6 col-lg-3">
@@ -28,8 +28,8 @@
         <div class="card text-white bg-info">
             <div class="card-body">
                 <h5 class="card-title"><i class="bi bi-bar-chart"></i> Resumen</h5>
-                <p class="card-text">Ver horas trabajadas</p>
-                <a href="{{ url_for('fichajes.resumen') }}" class="btn btn-light btn-sm">Ver resumen</a>
+                <p class="card-text">Ver historial completo</p>
+                <a href="{{ url_for('fichajes.listar') }}" class="btn btn-light btn-sm">Ver mis fichajes</a>
             </div>
         </div>
     </div>
@@ -57,5 +57,61 @@
         </div>
     </div>
     {% endif %}
-    {% endif %}
+{% endif %}
+
+<div class="mt-5">
+    <h3 class="mb-3"><i class="bi bi-activity"></i> Resumen Semanal</h3>
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card bg-light mb-3">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-muted">Horas Hoy</h5>
+                    <h3 class="text-primary">{{ "%.2f"|format(horas_hoy) }}h</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card bg-light mb-3">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-muted">Horas Esta Semana</h5>
+                    <h3 class="text-primary">{{ "%.2f"|format(horas_semana) }}h</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mt-3">
+        <div class="card-header">
+            Fichajes de Hoy
+        </div>
+        <div class="card-body">
+            {% if fichajes_hoy %}
+            <div class="table-responsive">
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Entrada</th>
+                            <th>Salida</th>
+                            <th>Pausa</th>
+                            <th>Horas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fichaje in fichajes_hoy %}
+                        <tr>
+                            <td>{{ fichaje.hora_entrada.strftime('%H:%M') }}</td>
+                            <td>{{ fichaje.hora_salida.strftime('%H:%M') }}</td>
+                            <td>{{ fichaje.pausa }}m</td>
+                            <td>{{ "%.2f"|format(fichaje.horas_trabajadas()) }}h</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted mb-0">No hay fichajes registrados para hoy.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
 {% endblock %}
