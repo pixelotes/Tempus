@@ -9,3 +9,4 @@ google-auth-oauthlib
 python-dotenv
 Flask-Dance
 blinker
+pytest

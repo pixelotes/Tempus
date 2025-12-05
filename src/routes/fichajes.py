@@ -2,6 +2,7 @@ from flask import render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from datetime import datetime, date, timedelta
 from calendar import monthrange
+from sqlalchemy import func, desc
 import uuid
 
 from src import db
@@ -26,6 +27,7 @@ def listar():
         fecha_inicio = date(anio, mes, 1)
         fecha_fin = date(anio, mes, ultimo_dia)
 
+    # Solo mostramos fichajes actuales y que NO sean de tipo 'eliminacion'
     fichajes = Fichaje.query.filter_by(usuario_id=current_user.id, es_actual=True)\
         .filter(Fichaje.tipo_accion != 'eliminacion')\
         .filter(Fichaje.fecha >= fecha_inicio)\
@@ -42,7 +44,6 @@ def crear():
         hora_entrada = datetime.strptime(request.form.get('hora_entrada'), '%H:%M').time()
         hora_salida = datetime.strptime(request.form.get('hora_salida'), '%H:%M').time()
         
-        # CAPTURAR PAUSA
         try:
             pausa = int(request.form.get('pausa') or 0)
         except ValueError:
@@ -50,7 +51,7 @@ def crear():
         
         fichaje = Fichaje(
             usuario_id=current_user.id,
-            editor_id=current_user.id,
+            editor_id=current_user.id, # El creador es el editor
             grupo_id=str(uuid.uuid4()),
             version=1,
             es_actual=True,
@@ -66,7 +67,25 @@ def crear():
         flash('Fichaje registrado correctamente', 'success')
         return redirect(url_for('fichajes.listar'))
     
-    return render_template('crear_fichaje.html', now=datetime.now)
+    # --- LÓGICA DE SUGERENCIAS (TOP 3 FRECUENTES) ---
+    sugerencias = db.session.query(
+        Fichaje.hora_entrada,
+        Fichaje.hora_salida,
+        Fichaje.pausa,
+        func.count(Fichaje.id).label('total')
+    ).filter(
+        Fichaje.usuario_id == current_user.id,
+        Fichaje.es_actual == True,
+        Fichaje.tipo_accion != 'eliminacion'
+    ).group_by(
+        Fichaje.hora_entrada,
+        Fichaje.hora_salida,
+        Fichaje.pausa
+    ).order_by(
+        desc('total')
+    ).limit(3).all()
+    
+    return render_template('crear_fichaje.html', now=datetime.now, sugerencias=sugerencias)
 
 @fichajes_bp.route('/fichajes/editar/<int:id>', methods=['GET', 'POST'])
 @login_required
@@ -87,18 +106,18 @@ def editar(id):
             flash('El motivo es obligatorio para rectificar un fichaje.', 'danger')
             return redirect(url_for('fichajes.editar', id=id))
 
-        # CAPTURAR PAUSA
         try:
             pausa = int(request.form.get('pausa') or 0)
         except ValueError:
             pausa = 0
 
-        # VERSIONADO
+        # 1. INMUTABILIDAD: Marcar actual como obsoleto
         fichaje_actual.es_actual = False
         
+        # 2. CREAR NUEVA VERSIÓN
         nuevo_fichaje = Fichaje(
             usuario_id=fichaje_actual.usuario_id,
-            editor_id=current_user.id, # Quién modifica
+            editor_id=current_user.id, # Quién hace la corrección
             grupo_id=fichaje_actual.grupo_id,
             version=fichaje_actual.version + 1,
             es_actual=True,
@@ -112,7 +131,7 @@ def editar(id):
         
         db.session.add(nuevo_fichaje)
         db.session.commit()
-        flash('Fichaje rectificado correctamente.', 'success')
+        flash('Fichaje rectificado correctamente (histórico guardado).', 'success')
         return redirect(url_for('fichajes.listar'))
     
     return render_template('editar_fichaje.html', fichaje=fichaje_actual, now=datetime.now)
@@ -130,8 +149,10 @@ def eliminar(id):
         flash('No se puede eliminar una versión histórica.', 'danger')
         return redirect(url_for('fichajes.listar'))
     
+    # 1. SOFT DELETE: Marcar actual como obsoleto
     fichaje_actual.es_actual = False
     
+    # 2. CREAR REGISTRO DE ELIMINACIÓN (Tombstone)
     fichaje_borrado = Fichaje(
         usuario_id=fichaje_actual.usuario_id,
         editor_id=current_user.id, # Quién elimina
@@ -141,6 +162,7 @@ def eliminar(id):
         tipo_accion='eliminacion',
         motivo_rectificacion="Eliminado por el usuario",
         fecha=fichaje_actual.fecha,
+        # Mantenemos datos originales para saber qué se borró
         hora_entrada=fichaje_actual.hora_entrada,
         hora_salida=fichaje_actual.hora_salida,
         pausa=fichaje_actual.pausa
