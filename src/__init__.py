@@ -1,11 +1,15 @@
-from flask import Flask, redirect, url_for, flash
+from flask import Flask, redirect, url_for, flash, render_template
 from flask_login import LoginManager, current_user
 from werkzeug.security import generate_password_hash
 from functools import wraps
 import os
 
+# Protección contra ataques de fuerza bruta
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
 # Importamos las extensiones y modelos
-from .models import db, Usuario, Festivo, TipoAusencia  # Añadido TipoAusencia
+from .models import db, Usuario, Festivo, TipoAusencia
 from .email_service import init_mail
 from flask_dance.contrib.google import make_google_blueprint, google
 
@@ -31,15 +35,28 @@ app.config["GOOGLE_OAUTH_CLIENT_SECRET"] = os.environ.get("GOOGLE_OAUTH_CLIENT_S
 
 google_bp = make_google_blueprint(
     scope=["profile", "email"],
-    redirect_to="auth.google_logged_in"  # Actualizado para apuntar al Blueprint de auth
+    redirect_to="auth.google_logged_in"
 )
 app.register_blueprint(google_bp, url_prefix="/login")
+
+# Límite global de 200/día y 50/hora por IP. Almacenamiento en memoria.
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"
+)
+
+# Manejador personalizado para el error 429 (Too Many Requests)
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return render_template('429.html', error=e.description), 429
 
 # INICIALIZACIÓN DE EXTENSIONES
 db.init_app(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'auth.login'  # Actualizado al endpoint del Blueprint
+login_manager.login_view = 'auth.login'
 
 # INICIALIZAR SERVICIO DE EMAIL
 init_mail(app)
@@ -48,7 +65,7 @@ init_mail(app)
 def load_user(user_id):
     return Usuario.query.get(int(user_id))
 
-# DEFINICIÓN DE DECORADORES (Se mantienen aquí para ser importados por los Blueprints)
+# DEFINICIÓN DE DECORADORES
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -67,15 +84,14 @@ def aprobador_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# REGISTRO DE BLUEPRINTS (NUEVA ESTRUCTURA)
-# Importamos al final para evitar dependencias circulares, ya que los blueprints importan db/app de aquí
+# REGISTRO DE BLUEPRINTS
 from src.routes import auth_bp, main_bp, fichajes_bp, ausencias_bp, admin_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(main_bp)
 app.register_blueprint(fichajes_bp)
 app.register_blueprint(ausencias_bp)
-app.register_blueprint(admin_bp) # Puedes añadir url_prefix='/admin' si quieres prefijar todas
+app.register_blueprint(admin_bp)
 
 # INICIALIZACIÓN DE BBDD
 @app.before_request
@@ -96,7 +112,7 @@ def init_db():
             db.session.commit()
             print("✅ Usuario Administrador creado.")
         
-        # 2. Crear Tipo de Ausencia por defecto "Otros" si no existe (NUEVO)
+        # 2. Crear Tipo de Ausencia por defecto "Otros" si no existe
         if not TipoAusencia.query.filter_by(nombre='Otros').first():
             otros = TipoAusencia(
                 nombre='Otros',

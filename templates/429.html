@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Demasiadas Peticiones{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 text-center">
+            <div class="card border-danger shadow-sm">
+                <div class="card-body p-5">
+                    <div class="display-1 text-danger mb-3">
+                        <i class="bi bi-exclamation-triangle"></i>
+                    </div>
+                    <h2 class="card-title text-danger">Demasiados intentos</h2>
+                    <p class="card-text lead mt-3">
+                        Has realizado demasiadas peticiones en muy poco tiempo. 
+                        Por seguridad, hemos bloqueado temporalmente el acceso.
+                    </p>
+                    <p class="text-muted">
+                        Por favor, espera un momento antes de volver a intentarlo.
+                    </p>
+                    
+                    <div class="mt-4">
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-outline-danger">
+                            <i class="bi bi-arrow-clockwise"></i> Volver a intentar
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

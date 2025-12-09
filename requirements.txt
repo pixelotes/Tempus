@@ -2,6 +2,8 @@ flask
 flask-sqlalchemy
 flask-login
 flask-mail
+flask-limiter
+rich
 gunicorn
 google-api-python-client
 google-auth-httplib2
