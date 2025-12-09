@@ -6,7 +6,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="bi bi-clock"></i> Mis Fichajes</h1>
     <div class="btn-group">
-        <button onclick="exportTableToCSV('fichajes.csv')" class="btn btn-success">
+        <button onclick="exportTableToCSV('mis_fichajes.csv', true)" class="btn btn-success">
             <i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV
         </button>
         <a href="{{ url_for('fichajes.crear') }}" class="btn btn-primary">
@@ -115,31 +115,4 @@
         {% endif %}
     </div>
 </div>
-<script>
-    function exportTableToCSV(filename) {
-        var csv = [];
-        var rows = document.querySelectorAll("table tr");
-        for (var i = 0; i < rows.length; i++) {
-            var row = [], cols = rows[i].querySelectorAll("td, th");
-            for (var j = 0; j < cols.length - 1; j++) {
-                var data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").replace(/(\s\s)/gm, " ");
-                data = data.replace(/"/g, '""');
-                row.push('"' + data + '"');
-            }
-            csv.push(row.join(","));
-        }
-        downloadCSV(csv.join("\n"), filename);
-    }
-    function downloadCSV(csv, filename) {
-        var csvFile;
-        var downloadLink;
-        csvFile = new Blob([csv], { type: "text/csv" });
-        downloadLink = document.createElement("a");
-        downloadLink.download = filename;
-        downloadLink.href = window.URL.createObjectURL(csvFile);
-        downloadLink.style.display = "none";
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-    }
-</script>
 {% endblock %}
