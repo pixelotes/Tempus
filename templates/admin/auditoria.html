@@ -1,72 +1,73 @@
 {% extends "base.html" %}
 
-{% block title %}Auditoría de Fichajes{% endblock %}
+{% block title %}Auditoría Global{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1><i class="bi bi-shield-check"></i> Auditoría (Histórico de Cambios)</h1>
+    <h1><i class="bi bi-shield-check"></i> Auditoría Global</h1>
+</div>
+
+<div class="card mb-4 bg-light">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <input type="text" class="form-control" name="usuario" placeholder="Buscar usuario..." value="{{ request.args.get('usuario', '') }}">
+            </div>
+            <div class="col-md-3">
+                <input type="date" class="form-control" name="fecha_inicio" value="{{ request.args.get('fecha_inicio', '') }}">
+            </div>
+            <div class="col-md-3">
+                <input type="date" class="form-control" name="fecha_fin" value="{{ request.args.get('fecha_fin', '') }}">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100"><i class="bi bi-filter"></i> Filtrar</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <div class="card">
-    <div class="card-body">
+    <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover align-middle">
-                <thead>
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
                     <tr>
                         <th>Fecha Acción</th>
                         <th>Tipo</th>
-                        <th>Empleado Afectado</th> <th>Realizado Por</th>     <th>Fichaje</th>
-                        <th>Datos Registrados (Versión)</th>
-                        <th>Motivo Rectificación</th>
+                        <th>Objeto</th>
+                        <th>Empleado Afectado</th>
+                        <th>Realizado Por</th>
+                        <th>Detalle</th>
+                        <th>Motivo / Notas</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for log in logs %}
-                    <tr class="{% if log.tipo_accion == 'eliminacion' %}table-danger{% elif log.tipo_accion == 'modificacion' %}table-warning{% endif %}">
+                    <tr>
                         <td>
-                            {{ log.fecha_creacion.strftime('%d/%m/%Y') }}<br>
-                            <small class="text-muted">{{ log.fecha_creacion.strftime('%H:%M:%S') }}</small>
+                            {{ log.fecha_accion.strftime('%d/%m/%Y') }}<br>
+                            <small class="text-muted">{{ log.fecha_accion.strftime('%H:%M') }}</small>
                         </td>
                         <td>
-                            {% if log.tipo_accion == 'modificacion' %}
-                                <span class="badge bg-warning text-dark">MODIFICACIÓN</span>
-                            {% elif log.tipo_accion == 'eliminacion' %}
-                                <span class="badge bg-danger">ELIMINACIÓN</span>
+                            {% if 'ELIMINACIÓN' in log.tipo_etiqueta %}
+                                <span class="badge bg-danger">{{ log.tipo_etiqueta }}</span>
+                            {% elif 'CREACIÓN' in log.tipo_etiqueta %}
+                                <span class="badge bg-info text-dark">{{ log.tipo_etiqueta }}</span>
                             {% else %}
-                                <span class="badge bg-secondary">{{ log.tipo_accion|upper }}</span>
+                                <span class="badge bg-warning text-dark">{{ log.tipo_etiqueta }}</span>
                             {% endif %}
                         </td>
-                        <td><strong>{{ log.usuario.nombre }}</strong></td>
-                        
+                        <td class="fw-bold text-secondary">{{ log.objeto }}</td>
+                        <td>{{ log.empleado }}</td>
                         <td>
-                            {% if log.editor %}
-                                {% if log.editor.id == log.usuario.id %}
-                                    <span class="text-muted"><i class="bi bi-person"></i> Él mismo</span>
-                                {% else %}
-                                    <span class="text-primary"><i class="bi bi-person-gear"></i> {{ log.editor.nombre }}</span>
-                                {% endif %}
-                            {% else %}
-                                <span class="text-muted">-</span>
-                            {% endif %}
+                            <i class="bi bi-person-gear text-primary"></i> {{ log.editor }}
                         </td>
-
-                        <td>{{ log.fecha.strftime('%d/%m/%Y') }}</td>
-                        <td>
-                            <div><strong>Entrada:</strong> {{ log.hora_entrada.strftime('%H:%M') }}</div>
-                            <div><strong>Salida:</strong> {{ log.hora_salida.strftime('%H:%M') }}</div>
-                            <small class="text-muted">Versión #{{ log.version }}</small>
-                        </td>
-                        <td>
-                            {% if log.motivo_rectificacion %}
-                                {{ log.motivo_rectificacion }}
-                            {% else %}
-                                <span class="text-muted fst-italic">- Sin motivo -</span>
-                            {% endif %}
-                        </td>
+                        <td><small>{{ log.detalle }}</small></td>
+                        <td><small class="text-muted fst-italic">{{ log.motivo }}</small></td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="7" class="text-center text-muted">No hay registros históricos de modificaciones.</td>
+                        <td colspan="7" class="text-center py-4 text-muted">No hay registros de auditoría.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

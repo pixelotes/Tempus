@@ -1,12 +1,12 @@
 from flask import render_template, request, redirect, url_for, flash
 from flask_login import current_user
 from werkzeug.security import generate_password_hash
-from sqlalchemy import func
+from sqlalchemy import func, or_  # <--- AÑADIDO or_
 from datetime import datetime, date, timedelta
 from calendar import monthrange
 
 from src import db, admin_required
-from src.models import Usuario, Aprobador, Fichaje, SolicitudVacaciones, Festivo, TipoAusencia
+from src.models import Usuario, Aprobador, Fichaje, SolicitudVacaciones, Festivo, TipoAusencia, SolicitudBaja
 from . import admin_bp
 
 @admin_bp.route('/admin/usuarios')
@@ -218,31 +218,105 @@ def admin_resumen():
     
     return render_template('admin/resumen.html', resumen_usuarios=resumen_usuarios, now=datetime.now, mes_actual=mes, anio_actual=anio)
 
+# --- AUDITORÍA UNIFICADA (Fichajes + Ausencias + Impersonation) ---
 @admin_bp.route('/admin/auditoria')
 @admin_required
 def admin_auditoria():
     usuario_nombre = request.args.get('usuario')
     fecha_inicio = request.args.get('fecha_inicio')
     fecha_fin = request.args.get('fecha_fin')
+    
+    logs_unificados = []
 
-    # Unimos con Usuario usando el usuario_id (el dueño del fichaje)
-    query = Fichaje.query.join(Usuario, Fichaje.usuario_id == Usuario.id).filter(
-        (Fichaje.version > 1) | (Fichaje.tipo_accion != 'creacion')
+    # 1. AUDITORÍA DE FICHAJES
+    # Buscamos: Modificaciones (v>1), Eliminaciones, o Creaciones por admin (editor!=usuario)
+    query_fichajes = Fichaje.query.join(Usuario, Fichaje.usuario_id == Usuario.id).filter(
+        or_(
+            Fichaje.version > 1,
+            Fichaje.tipo_accion == 'eliminacion',
+            Fichaje.editor_id != Fichaje.usuario_id  # <--- DETECTA CREACIÓN POR ADMIN
+        )
     )
     
     if usuario_nombre:
-        query = query.filter(Usuario.nombre.ilike(f'%{usuario_nombre}%'))
-        
+        query_fichajes = query_fichajes.filter(Usuario.nombre.ilike(f'%{usuario_nombre}%'))
     if fecha_inicio:
-        query = query.filter(Fichaje.fecha_creacion >= datetime.strptime(fecha_inicio, '%Y-%m-%d'))
-        
+        query_fichajes = query_fichajes.filter(Fichaje.fecha_creacion >= datetime.strptime(fecha_inicio, '%Y-%m-%d'))
     if fecha_fin:
         fin = datetime.strptime(fecha_fin, '%Y-%m-%d') + timedelta(days=1)
-        query = query.filter(Fichaje.fecha_creacion < fin)
+        query_fichajes = query_fichajes.filter(Fichaje.fecha_creacion < fin)
         
-    logs = query.order_by(Fichaje.fecha_creacion.desc()).all()
+    for f in query_fichajes.all():
+        tipo = 'MODIFICACIÓN'
+        if f.tipo_accion == 'eliminacion': tipo = 'ELIMINACIÓN'
+        elif f.version == 1: tipo = 'CREACIÓN (ADMIN)'
+        
+        logs_unificados.append({
+            'fecha_accion': f.fecha_creacion,
+            'tipo_etiqueta': tipo,
+            'empleado': f.usuario.nombre,
+            'editor': f.editor.nombre if f.editor else 'Sistema',
+            'objeto': 'Fichaje',
+            'detalle': f"{f.fecha.strftime('%d/%m/%Y')} ({f.hora_entrada.strftime('%H:%M')} - {f.hora_salida.strftime('%H:%M')})",
+            'motivo': f.motivo_rectificacion or '-'
+        })
+
+    # 2. AUDITORÍA DE VACACIONES
+    # Buscamos solicitudes donde haya intervenido un aprobador (o admin creador)
+    query_vac = SolicitudVacaciones.query.join(Usuario, SolicitudVacaciones.usuario_id == Usuario.id).filter(
+        SolicitudVacaciones.aprobador_id.isnot(None)
+    )
     
-    return render_template('admin/auditoria.html', logs=logs)
+    if usuario_nombre:
+        query_vac = query_vac.filter(Usuario.nombre.ilike(f'%{usuario_nombre}%'))
+    # Filtros de fecha (simplificado para usar fecha_respuesta si existe)
+    
+    for v in query_vac.all():
+        # Si la respuesta es casi inmediata a la solicitud, fue creada por el admin directamente
+        delta = (v.fecha_respuesta or v.fecha_solicitud) - v.fecha_solicitud
+        es_creacion_directa = delta.total_seconds() < 60
+        
+        tipo = 'CREACIÓN (ADMIN)' if es_creacion_directa else 'APROBACIÓN/RECHAZO'
+        
+        logs_unificados.append({
+            'fecha_accion': v.fecha_respuesta or v.fecha_solicitud,
+            'tipo_etiqueta': tipo,
+            'empleado': v.usuario.nombre,
+            'editor': v.aprobador.nombre if v.aprobador else 'Admin',
+            'objeto': 'Vacaciones',
+            'detalle': f"{v.fecha_inicio.strftime('%d/%m')} - {v.fecha_fin.strftime('%d/%m')} ({v.dias_solicitados}d) [{v.estado.upper()}]",
+            'motivo': v.motivo or '-'
+        })
+
+    # 3. AUDITORÍA DE BAJAS
+    query_bajas = SolicitudBaja.query.join(Usuario, SolicitudBaja.usuario_id == Usuario.id).filter(
+        SolicitudBaja.aprobador_id.isnot(None)
+    )
+    
+    if usuario_nombre:
+        query_bajas = query_bajas.filter(Usuario.nombre.ilike(f'%{usuario_nombre}%'))
+
+    for b in query_bajas.all():
+        delta = (b.fecha_respuesta or b.fecha_solicitud) - b.fecha_solicitud
+        es_creacion_directa = delta.total_seconds() < 60
+        
+        tipo = 'CREACIÓN (ADMIN)' if es_creacion_directa else 'APROBACIÓN/RECHAZO'
+        
+        logs_unificados.append({
+            'fecha_accion': b.fecha_respuesta or b.fecha_solicitud,
+            'tipo_etiqueta': tipo,
+            'empleado': b.usuario.nombre,
+            'editor': b.aprobador.nombre if b.aprobador else 'Admin',
+            'objeto': 'Baja/Ausencia',
+            'detalle': f"{b.fecha_inicio.strftime('%d/%m')} - {b.fecha_fin.strftime('%d/%m')} ({b.tipo_ausencia.nombre}) [{b.estado.upper()}]",
+            'motivo': b.motivo or '-'
+        })
+
+    # Ordenar cronológicamente (más reciente arriba)
+    logs_unificados.sort(key=lambda x: x['fecha_accion'], reverse=True)
+    
+    # Renderizamos la plantilla nueva que sabe mostrar esta lista unificada
+    return render_template('admin/auditoria.html', logs=logs_unificados)
 
 @admin_bp.route('/admin/admin_fichajes', methods=['GET'])
 @admin_required
