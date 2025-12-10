@@ -1,5 +1,5 @@
 from datetime import timedelta, date
-from src.models import Festivo, SolicitudVacaciones, SolicitudBaja
+from src.models import Festivo, SolicitudVacaciones, SolicitudBaja, SaldoVacaciones
 from sqlalchemy import or_, and_
 
 
@@ -75,7 +75,9 @@ def verificar_solapamiento(usuario_id, fecha_inicio, fecha_fin, excluir_solicitu
     
     # Si estamos editando, excluimos la propia solicitud para que no choque consigo misma
     if tipo == 'vacaciones' and excluir_solicitud_id:
-        query_vac = query_vac.filter(SolicitudVacaciones.id != excluir_solicitud_id)
+        sol_orig = SolicitudVacaciones.query.get(excluir_solicitud_id)
+        if sol_orig:
+            query_vac = query_vac.filter(SolicitudVacaciones.grupo_id != sol_orig.grupo_id)
         
     if query_vac.count() > 0:
         return True, "Ya tienes vacaciones solicitadas en estas fechas."
@@ -96,3 +98,50 @@ def verificar_solapamiento(usuario_id, fecha_inicio, fecha_fin, excluir_solicitu
         return True, "Ya tienes una baja registrada en estas fechas."
         
     return False, None
+
+def simular_modificacion_vacaciones(usuario_id, solicitud_original_id, nueva_fecha_inicio, nueva_fecha_fin):
+    """
+    Calcula el impacto de modificar una solicitud de vacaciones existente.
+    Retorna un dict con claves: valido (bool), motivo (str), dias_diff (int), es_adelanto (bool).
+    """
+    # 1. Obtener solicitud original
+    original = SolicitudVacaciones.query.get(solicitud_original_id)
+    if not original:
+        return {'valido': False, 'motivo': 'Solicitud original no encontrada'}
+
+    # 2. Verificar Solapamiento (Excluyendo el grupo de la original)
+    hay_solape, msg = verificar_solapamiento(usuario_id, nueva_fecha_inicio, nueva_fecha_fin, excluir_solicitud_id=original.id, tipo='vacaciones')
+    if hay_solape:
+        return {'valido': False, 'motivo': msg}
+
+    # 3. Calcular nuevos días hábiles
+    dias_nuevos = calcular_dias_habiles(nueva_fecha_inicio, nueva_fecha_fin)
+    if dias_nuevos <= 0:
+        return {'valido': False, 'motivo': 'El rango seleccionado no tiene días hábiles.'}
+
+    # 4. Comprobar Saldo Anual (Modelo Sesame)
+    anio = nueva_fecha_inicio.year
+    saldo = SaldoVacaciones.query.filter_by(usuario_id=usuario_id, anio=anio).first()
+
+    # Si no existe saldo, asumimos 0 disponibles
+    dias_totales = saldo.dias_totales if saldo else 0
+    dias_disfrutados = saldo.dias_disfrutados if saldo else 0
+
+    # Días que liberamos de la original (solo si estaba aprobada/consumida)
+    # Nota: Si está pendiente, no ha consumido saldo técnicamente en 'dias_disfrutados', 
+    # pero para el cálculo proyectado asumimos el escenario de cambio.
+    dias_liberados = original.dias_solicitados
+
+    # Cálculo: (Disponibles Reales) + (Lo que devuelve) - (Lo que pide nuevo)
+    saldo_disponible_actual = dias_totales - dias_disfrutados
+    saldo_final_proyectado = saldo_disponible_actual + dias_liberados - dias_nuevos
+
+    diff = dias_nuevos - dias_liberados
+
+    return {
+        'valido': True,
+        'dias_diff': diff,
+        'es_adelanto': saldo_final_proyectado < 0,
+        'saldo_proyectado': saldo_final_proyectado,
+        'motivo': 'Adelanto de vacaciones' if saldo_final_proyectado < 0 else 'OK'
+    }

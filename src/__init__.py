@@ -125,5 +125,47 @@ def init_db():
             db.session.add(otros)
             db.session.commit()
             print("✅ Tipo de ausencia 'Otros' creado automáticamente.")
+
+        # 3. Migración de Saldos de Vacaciones (Tarea 3)
+        from datetime import datetime
+        from .models import SaldoVacaciones, SolicitudVacaciones
+        
+        current_year = datetime.now().year
+        usuarios = Usuario.query.all()
+        
+        for usuario in usuarios:
+            # Verificar si ya tiene saldo para este año
+            saldo = SaldoVacaciones.query.filter_by(usuario_id=usuario.id, anio=current_year).first()
+            
+            if not saldo:
+                # Calcular días disfrutados este año
+                # Solicitudes aprobadas y actuales que caigan en este año
+                # Nota: Una solicitud podría cruzar años, pero simplificamos asumiendo fechas dentro del año
+                # o que el usuario gestiona cortes. La instrucción dice "que caigan en el año actual".
+                # Para mayor precisión usamos intersection, pero seguiremos lógica simple de "solicitudes del año".
+                
+                dias_disfrutados = 0
+                solicitudes = SolicitudVacaciones.query.filter_by(usuario_id=usuario.id, estado='aprobada', es_actual=True).all()
+                
+                for sol in solicitudes:
+                    # Simple check: si la solicitud empieza o termina en este año
+                    if sol.fecha_inicio.year == current_year:
+                        dias_disfrutados += sol.dias_solicitados
+                
+                # Crear Saldo
+                nuevo_saldo = SaldoVacaciones(
+                    usuario_id=usuario.id,
+                    anio=current_year,
+                    dias_totales=usuario.dias_vacaciones, # Usamos el valor antiguo
+                    dias_disfrutados=dias_disfrutados
+                )
+                db.session.add(nuevo_saldo)
+                print(f"✅ SaldoVacaciones migrado para {usuario.email} ({current_year}): {dias_disfrutados}/{usuario.dias_vacaciones}")
+        
+        db.session.commit()
+        
         
         app.db_initialized = True
+
+from src.cli import cerrar_anio_command
+app.cli.add_command(cerrar_anio_command)

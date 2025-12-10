@@ -4,8 +4,8 @@ from datetime import datetime, date
 import uuid
 
 from src import db
-from src.models import SolicitudVacaciones, SolicitudBaja, TipoAusencia, Usuario
-from src.utils import calcular_dias_habiles, verificar_solapamiento
+from src.models import SolicitudVacaciones, SolicitudBaja, TipoAusencia, Usuario, SaldoVacaciones
+from src.utils import calcular_dias_habiles, verificar_solapamiento, simular_modificacion_vacaciones
 from . import ausencias_bp
 
 # -------------------------------------------------------------------------
@@ -127,18 +127,118 @@ def cancelar_vacaciones(id):
         flash('No tienes permiso para modificar esta solicitud.', 'danger')
         return redirect(url_for('ausencias.listar_vacaciones'))
         
-    # Lógica de Negocio: Solo pendientes (Salvo Admin que puede revocar)
-    if solicitud.estado != 'pendiente' and not es_admin:
-        flash('Solo se pueden cancelar solicitudes pendientes. Contacta con RRHH.', 'warning')
+    # Lógica de Negocio: 
+    # Si YA está aprobada Y NO soy admin (gestión propia): SOLICITAR CANCELACIÓN (Nueva Versión)
+    if solicitud.estado == 'aprobada' and not es_admin:
+        # Crear solicitud de cancelación (versión nueva)
+        nueva_solicitud = SolicitudVacaciones(
+            usuario_id=current_user.id,
+            grupo_id=solicitud.grupo_id,
+            version=solicitud.version + 1,
+            es_actual=True, # Ahora hay DOS actuales (la aprobada y la petición de cancel)
+            tipo_accion='cancelacion',
+            fecha_inicio=solicitud.fecha_inicio,
+            fecha_fin=solicitud.fecha_fin,
+            dias_solicitados=solicitud.dias_solicitados,
+            motivo=f"Solicitud de cancelación: {solicitud.motivo}",
+            estado='pendiente',
+            fecha_solicitud=datetime.utcnow()
+        )
+        db.session.add(nueva_solicitud)
+        db.session.commit()
+        flash('Solicitud de cancelación enviada para aprobación.', 'info')
         return redirect(url_for('ausencias.listar_vacaciones'))
+
+    # Si está pendiente (o soy admin revocándola), se cancela directamente
+    if solicitud.estado != 'pendiente' and not es_admin:
+         flash('No puedes cancelar directamente una solicitud ya procesada. Se ha generado una petición de cancelación.', 'warning')
+         # Fallback por si acaso lógica arriba fallara o para cubrir huecos
+         return redirect(url_for('ausencias.listar_vacaciones'))
     
-    # Acción: Marcar como rechazada/cancelada
+    # Acción Directa: Marcar como rechazada/cancelada
     solicitud.estado = 'rechazada'
     solicitud.comentarios = f'Cancelada por {current_user.nombre}'
     solicitud.fecha_respuesta = datetime.utcnow()
+    # Si era la actual, quizás deberíamos mantenerla como actual pero rechazada, o versionar.
+    # El sistema actual simplemente cambia estado.
     
     db.session.commit()
     flash('Solicitud cancelada correctamente.', 'info')
+    return redirect(url_for('ausencias.listar_vacaciones'))
+
+
+@ausencias_bp.route('/vacaciones/modificar/<int:id>', methods=['POST'])
+@login_required
+def modificar_vacaciones(id):
+    """Solicita una modificación de fechas para una solicitud existente (crea v2)."""
+    original = SolicitudVacaciones.query.get_or_404(id)
+    
+    if original.usuario_id != current_user.id:
+        flash('No tienes permiso.', 'danger')
+        return redirect(url_for('ausencias.listar_vacaciones'))
+        
+    fecha_inicio_str = request.form.get('fecha_inicio')
+    fecha_fin_str = request.form.get('fecha_fin')
+    motivo = request.form.get('motivo')
+    
+    try:
+        nueva_fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+        nueva_fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        flash('Fechas inválidas.', 'danger')
+        return redirect(url_for('ausencias.listar_vacaciones')) # O renderizar modal de nuevo
+        
+    # Validar fechas básicas
+    if nueva_fecha_fin < nueva_fecha_inicio:
+        flash('La fecha fin no puede ser anterior a la de inicio.', 'danger')
+        return redirect(url_for('ausencias.listar_vacaciones'))
+
+    # SIMULACIÓN (Tarea 4)
+    resultado = simular_modificacion_vacaciones(
+        current_user.id, 
+        original.id, 
+        nueva_fecha_inicio, 
+        nueva_fecha_fin
+    )
+    
+    if not resultado['valido']:
+        flash(f"Error al modificar: {resultado['motivo']}", 'danger')
+        return redirect(url_for('ausencias.listar_vacaciones'))
+        
+    if resultado.get('es_adelanto'):
+        flash(f"Atención: Estás solicitando vacaciones por adelantado ({resultado['saldo_proyectado']} días).", 'warning')
+
+    # CREAR NUEVA VERSIÓN (Tarea 5)
+    nueva_version = SolicitudVacaciones(
+        usuario_id=current_user.id,
+        grupo_id=original.grupo_id,
+        version=original.version + 1,
+        es_actual=True,
+        tipo_accion='modificacion',
+        fecha_inicio=nueva_fecha_inicio,
+        fecha_fin=nueva_fecha_fin,
+        dias_solicitados=resultado['dias_diff'] + original.dias_solicitados, # Ojo: dias_diff es (nuevos - viejos). Así que nuevos = diff + viejos. O mejor usar dias calculados en simulación si los devolviera, pero podemos recalcular o confiar en diff.
+        # Espera, dias_solicitados debe ser el TOTAL de días de la nueva solicitud.
+        # simular devuelve dias_diff = dias_nuevos - dias_liberados.
+        # dias_nuevos = dias_diff + dias_liberados.
+        # dias_liberados = original.dias_solicitados.
+        # Por tanto: dias_nuevos = resultado['dias_diff'] + original.dias_solicitados.
+        motivo=motivo,
+        estado='pendiente',
+        editor_id=current_user.id,
+        fecha_solicitud=datetime.utcnow()
+    )
+    
+    # Recalculamos explícitamente para estar seguros y no depender de aritmética inversa si hay lógica rara
+    # dias_nuevos_seguro = calcular_dias_habiles(nueva_fecha_inicio, nueva_fecha_fin)
+    # nueva_version.dias_solicitados = dias_nuevos_seguro
+    # Pero usaremos la aritmética del resultado simulación que ya validó saldo.
+    nueva_version.dias_solicitados = resultado['dias_diff'] + original.dias_solicitados
+
+    db.session.add(nueva_version)
+    db.session.commit()
+    
+    flash('Solicitud de modificación enviada correctamente.', 'success')
     return redirect(url_for('ausencias.listar_vacaciones'))
 
 
@@ -159,7 +259,7 @@ def listar_bajas():
 @login_required
 def solicitar_baja():
     """Formulario y proceso de creación de nueva baja/permiso."""
-    tipos = TipoAusencia.query.all()
+    tipos = TipoAusencia.query.filter_by(activo=True).all()
     
     # Si es admin, cargar usuarios
     usuarios = []
@@ -298,13 +398,67 @@ def responder_solicitud(id, accion):
 
     # Procesar Acción
     if accion == 'aprobar':
-        solicitud.estado = 'aprobada'
-        flash(f'Solicitud de vacaciones de {solicitud.usuario.nombre} aprobada.', 'success')
-        # TODO: Aquí se podría integrar el envío de email de confirmación
-        
+        # --- CASO A: CREACIÓN (Primera vez) ---
+        if solicitud.tipo_accion == 'creacion':
+            # 1. Actualizar Saldo
+            anio = solicitud.fecha_inicio.year
+            saldo = SaldoVacaciones.query.filter_by(usuario_id=solicitud.usuario_id, anio=anio).first()
+            if saldo:
+                saldo.dias_disfrutados += solicitud.dias_solicitados
+                # Seguridad básica: permitir negativo con warning en log, o bloquear. 
+                # El usuario ya fue avisado al pedir. Aquí ejecutamos.
+            
+            solicitud.estado = 'aprobada'
+            flash(f'Solicitud de vacaciones aprobada. Días descontados.', 'success')
+
+        # --- CASO B: MODIFICACIÓN O CANCELACIÓN (Versionado) ---
+        elif solicitud.tipo_accion in ['modificacion', 'cancelacion']:
+            # 1. Buscar V1 (La versión actual anterior)
+            v1 = SolicitudVacaciones.query.filter(
+                SolicitudVacaciones.grupo_id == solicitud.grupo_id,
+                SolicitudVacaciones.es_actual == True,
+                SolicitudVacaciones.id != solicitud.id
+            ).first()
+
+            # 2. Consolidar V1 (Obsoleta)
+            dias_reintegro = 0
+            if v1:
+                v1.es_actual = False
+                dias_reintegro = v1.dias_solicitados
+            
+            # 3. Activar V2 (Esta solicitud)
+            solicitud.estado = 'aprobada'
+            solicitud.es_actual = True
+            
+            # 4. Ajuste de Saldo
+            coste_nuevo = 0
+            if solicitud.tipo_accion == 'modificacion':
+                coste_nuevo = solicitud.dias_solicitados
+            elif solicitud.tipo_accion == 'cancelacion':
+                coste_nuevo = 0 # Cancelar implica que no se consumen días
+            
+            anio = solicitud.fecha_inicio.year
+            saldo = SaldoVacaciones.query.filter_by(usuario_id=solicitud.usuario_id, anio=anio).first()
+            
+            if saldo:
+                saldo.dias_disfrutados = saldo.dias_disfrutados - dias_reintegro + coste_nuevo
+                
+            flash(f"Solicitud aprobada. Saldo ajustado (Devueltos: {dias_reintegro}, Nuevos: {coste_nuevo}).", 'success')
+
     elif accion == 'rechazar':
         solicitud.estado = 'rechazada'
         flash(f'Solicitud de vacaciones de {solicitud.usuario.nombre} rechazada.', 'info')
+        
+        # Tarea 8: Si rechazamos una MODIFICACIÓN/CANCELACIÓN (v2), esa versión muere.
+        # La versión original (v1) sigue siendo la válida y 'actual'.
+        # Por tanto, marcamos la rechazada como es_actual=False para que no salga en listados como "actual" aprobada.
+        if solicitud.tipo_accion in ['modificacion', 'cancelacion']:
+            solicitud.es_actual = False
+            # Nota: No tocamos v1. v1 ya era es_actual=True y sigue siendolo.
+            # No tocamos Saldo.
+        
+        # Si rechazamos una CREACIÓN (v1), sigue siendo es_actual=True (pero rechazada), 
+        # para que el usuario vea que fue rechazada en su historial.
     
     else:
         flash('Acción no reconocida.', 'warning')
