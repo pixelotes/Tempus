@@ -415,6 +415,34 @@ def solicitar_baja():
     return render_template('solicitar_baja.html', tipos=tipos, usuarios=usuarios)
 
 
+# En src/routes/ausencias.py
+
+@ausencias_bp.route('/bajas/cancelar/<int:id>', methods=['POST'])
+@login_required
+def cancelar_baja(id):
+    """Permite cancelar una solicitud de baja si está pendiente."""
+    solicitud = SolicitudBaja.query.get_or_404(id)
+    
+    # 1. Seguridad: Verificar propiedad o Admin
+    if solicitud.usuario_id != current_user.id and current_user.rol != 'admin':
+        flash('No tienes permiso para cancelar esta solicitud.', 'danger')
+        return redirect(url_for('ausencias.listar_bajas'))
+    
+    # 2. Validación: Solo pendientes
+    if solicitud.estado != 'pendiente':
+        flash('No se puede cancelar una baja que ya ha sido procesada.', 'warning')
+        return redirect(url_for('ausencias.listar_bajas'))
+        
+    # 3. Acción: Cancelar (Marcar como rechazada/retirada)
+    solicitud.estado = 'rechazada'
+    solicitud.comentarios = f'Cancelada/Retirada por {current_user.nombre}'
+    solicitud.fecha_respuesta = datetime.utcnow()
+    
+    db.session.commit()
+    
+    flash('Solicitud de baja cancelada correctamente.', 'info')
+    return redirect(url_for('ausencias.listar_bajas'))
+
 # -------------------------------------------------------------------------
 # ZONA DE APROBADORES (MANAGERS/ADMINS)
 # -------------------------------------------------------------------------
