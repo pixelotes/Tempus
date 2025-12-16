@@ -3,6 +3,7 @@ from flask_login import login_required, current_user
 from datetime import datetime, date, timedelta
 from calendar import monthrange
 from sqlalchemy import func, desc
+from src.utils import es_festivo, verificar_solapamiento, verificar_solapamiento_fichaje
 import uuid
 
 from src import db
@@ -49,8 +50,24 @@ def crear():
             pausa = int(request.form.get('pausa') or 0)
         except ValueError:
             pausa = 0
+
+        # --- VALIDACIONES DE BLOQUEO ---
+        
+        # 0. Validación básica de horas
+        if hora_salida <= hora_entrada:
+             flash('La hora de salida debe ser posterior a la entrada.', 'danger')
+             return redirect(url_for('fichajes.crear'))
+
+        # 1. CHECK DE SOLAPAMIENTO DE FICHAJES
+        hay_solape, msg_error = verificar_solapamiento_fichaje(current_user.id, fecha, hora_entrada, hora_salida)
+        
+        if hay_solape:
+            # Aquí usamos 'danger' para indicar error y NO guardamos
+            flash(f'Error: No se puede crear el fichaje. {msg_error}', 'danger')
+            #return redirect(url_for('fichajes.listar')) 
+            return redirect(url_for('fichajes.crear'))
             
-        # --- NUEVA LÓGICA DE ADVERTENCIAS ---
+        # --- LÓGICA DE ADVERTENCIAS ---
         
         # 1. Advertencia de Fin de Semana o Festivo
         if es_festivo(fecha):

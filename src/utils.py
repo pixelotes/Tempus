@@ -1,5 +1,5 @@
 from datetime import timedelta, date
-from src.models import Festivo, SolicitudVacaciones, SolicitudBaja, SaldoVacaciones
+from src.models import Festivo, SolicitudVacaciones, SolicitudBaja, SaldoVacaciones, Fichaje
 from sqlalchemy import or_, and_
 
 
@@ -164,3 +164,34 @@ def decimal_to_human(horas_decimales):
     
     # Formateo con ceros a la izquierda (zfill)
     return f"{str(horas).zfill(2)}:{str(minutos).zfill(2)}"
+
+def verificar_solapamiento_fichaje(usuario_id, fecha, hora_entrada, hora_salida, excluir_fichaje_id=None):
+    """
+    Verifica si un tramo horario se solapa con fichajes existentes activos del mismo día.
+    Retorna: True si hay solapamiento, False si está libre.
+    """
+    query = Fichaje.query.filter(
+        Fichaje.usuario_id == usuario_id,
+        Fichaje.es_actual == True,
+        Fichaje.tipo_accion != 'eliminacion',
+        Fichaje.fecha == fecha,
+        # Lógica de intersección de rangos:
+        # (InicioNuevo < FinExistente) AND (FinNuevo > InicioExistente)
+        Fichaje.hora_entrada < hora_salida,
+        Fichaje.hora_salida > hora_entrada
+    )
+
+    # Si estamos editando, excluimos el fichaje que estamos tocando para que no choque consigo mismo
+    # (Nota: dado el sistema de versiones, esto comprueba contra otros fichajes activos 'hermanos')
+    if excluir_fichaje_id:
+        # Excluimos por grupo_id para evitar conflictos con versiones anteriores del mismo fichaje
+        fichaje_actual = Fichaje.query.get(excluir_fichaje_id)
+        if fichaje_actual:
+            query = query.filter(Fichaje.grupo_id != fichaje_actual.grupo_id)
+
+    conflicto = query.first()
+    
+    if conflicto:
+        return True, f"Solapamiento con fichaje existente ({conflicto.hora_entrada.strftime('%H:%M')} - {conflicto.hora_salida.strftime('%H:%M')})"
+    
+    return False, None
