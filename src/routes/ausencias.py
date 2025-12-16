@@ -376,11 +376,13 @@ def solicitar_baja():
             return redirect(url_for('ausencias.solicitar_baja'))
 
         if tipo_obj.tipo_dias == 'naturales':
-            # Cuenta todos los días del calendario
             dias = (fecha_fin - fecha_inicio).days + 1
         else:
-            # Cuenta solo días hábiles (laborables)
             dias = calcular_dias_habiles(fecha_inicio, fecha_fin)
+
+        if dias > tipo_obj.max_dias:
+            flash(f'Error: La duración ({dias} días) supera el máximo permitido para "{tipo_obj.nombre}" ({tipo_obj.max_dias} días).', 'danger')
+            return redirect(url_for('ausencias.solicitar_baja'))
 
         # 3. Configurar Estado (Admin -> Aprobada)
         es_admin_gestion = (current_user.rol == 'admin' and target_user.id != current_user.id)

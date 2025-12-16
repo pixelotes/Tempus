@@ -17,6 +17,9 @@ from flask_dance.contrib.google import make_google_blueprint, google
 from dotenv import load_dotenv
 load_dotenv()
 
+# Importamos utilidades
+from src.utils import decimal_to_human
+
 # Permitir transporte inseguro para OAuth en desarrollo (HTTP)
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
@@ -84,6 +87,11 @@ def aprobador_required(f):
             return redirect(url_for('main.index'))
         return f(*args, **kwargs)
     return decorated_function
+
+# FILTRO DE HORAS
+@app.template_filter('formato_hora')
+def formato_hora_filter(value):
+    return decimal_to_human(value)
 
 # REGISTRO DE BLUEPRINTS
 from src.routes import auth_bp, main_bp, fichajes_bp, ausencias_bp, admin_bp

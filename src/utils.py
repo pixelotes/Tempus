@@ -147,3 +147,20 @@ def simular_modificacion_vacaciones(usuario_id, solicitud_original_id, nueva_fec
         'saldo_proyectado': saldo_final_proyectado,
         'motivo': 'Adelanto de vacaciones' if saldo_final_proyectado < 0 else 'OK'
     }
+
+def decimal_to_human(horas_decimales):
+    """
+    Convierte horas decimales (8.5) a formato legible (08:30).
+    Maneja None o 0 elegantemente.
+    """
+    if not horas_decimales:
+        return "00:00"
+    
+    # Asegurar que es positivo
+    horas_decimales = max(0, float(horas_decimales))
+    
+    horas = int(horas_decimales)
+    minutos = int((horas_decimales - horas) * 60)
+    
+    # Formateo con ceros a la izquierda (zfill)
+    return f"{str(horas).zfill(2)}:{str(minutos).zfill(2)}"
