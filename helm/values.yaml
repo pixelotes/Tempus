@@ -12,6 +12,8 @@ service:
 database:
   # Opciones: "sqlite" (no recomendado para producción), "internal" (despliega pod postgres) o "external" (usa RDS/Aurora/Etc)
   type: internal
+
+  # Internal se configura desde la ruta .Values.postgresql      
   
   # Solo se usa si type: external
   external:
@@ -21,6 +23,7 @@ database:
     password: "password_seguro"
     database: "fichador_prod"
 
+  # Solo se usa si type: sqlite
   sqlite:
     persistence:
       enabled: true
