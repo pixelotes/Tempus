@@ -1,24 +1,23 @@
-
 import click
 from flask.cli import with_appcontext
 from src import db
 from src.models import Usuario, SaldoVacaciones
 
-MAX_CARRYOVER = 5
-
 @click.command('cerrar-anio')
 @click.argument('anio_origen', type=int)
+@click.option('--max-carryover', default=10, type=int, help='Máximo de días a traspasar al año siguiente (por defecto: 10)')
 @with_appcontext
-def cerrar_anio_command(anio_origen):
+def cerrar_anio_command(anio_origen, max_carryover):
     """
     Cierra el año fiscal especificado y genera los saldos del siguiente.
-    Uso: flask cerrar-anio 2024
+    Uso: flask cerrar-anio 2024 --max-carryover 12
     """
     anio_nuevo = anio_origen + 1
     usuarios = Usuario.query.all()
     count = 0
     
     print(f"--- Cerrando Año Fiscal {anio_origen} -> {anio_nuevo} ---")
+    print(f"--- Configuración: Máximo Carryover = {max_carryover} días ---")
 
     for u in usuarios:
         # 1. Obtener saldo del año que cierra
@@ -31,9 +30,9 @@ def cerrar_anio_command(anio_origen):
 
         # 2. Aplicar política de Carryover
         # Si sobraron días negativos (comió días de más), se restan del año siguiente (deuda)
-        # Si sobraron positivos, aplicamos el tope (MAX_CARRYOVER)
+        # Si sobraron positivos, aplicamos el tope (max_carryover)
         if sobrante > 0:
-            dias_a_traspasar = min(sobrante, MAX_CARRYOVER)
+            dias_a_traspasar = min(sobrante, max_carryover)
         else:
             dias_a_traspasar = sobrante # Arrastra la deuda íntegra
 
@@ -123,3 +122,4 @@ def import_users_command(csv_file):
 
     db.session.commit()
     print(f"\nResumen: {count_new} creados, {count_skip} saltados.")
+    
