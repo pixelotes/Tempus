@@ -2,6 +2,11 @@
 
 {% block title %}Nuevo Fichaje{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/airbnb.css">
+{% endblock %}
+
 {% block content %}
 <h1 class="mb-4"><i class="bi bi-plus-circle"></i> Nuevo Fichaje</h1>
 
@@ -16,7 +21,8 @@
             <div class="mb-3">
                 <label class="form-label">Fecha</label>
                 <input type="date" class="form-control" name="fecha" id="inputFecha" required 
-                       value="{{ request.form.get('fecha', '') or now().strftime('%Y-%m-%d') }}">
+                       value="{{ request.form.get('fecha', '') or now().strftime('%Y-%m-%d') }}"
+                       placeholder="Selecciona una fecha">
             </div>
             
             <div class="row">
@@ -82,12 +88,38 @@
     </div>
 </div>
 
-<script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script> <script>
+    // --- 0. INICIALIZACIÓN DE FLATPICKR (FECHA ESPAÑOLA) ---
+    // Esto convierte el input normal en un selector avanzado
+    flatpickr("#inputFecha", {
+        locale: "es",           // Pone los meses/días en español
+        altInput: true,         // Crea un input visual alternativo
+        altFormat: "d/m/Y",     // Formato visual: 16/12/2025
+        dateFormat: "Y-m-d",    // Formato real que se envía al servidor: 2025-12-16
+        allowInput: true,       // Permite escribir la fecha a mano
+        monthSelectorType: "static"
+    });
+
     // --- 1. VERIFICACIÓN DE FECHA (AJAX) ---
     document.getElementById('inputFecha').addEventListener('change', async function() {
-        const fecha = this.value;
+        verificarDatos(); // Llamamos a la función centralizada
+    });
+
+    // --- 2. CÁLCULO DE HORAS Y VALIDACIÓN CENTRALIZADA ---
+    const entradaInput = document.getElementById('inputEntrada');
+    const salidaInput = document.getElementById('inputSalida');
+    const pausaInput = document.getElementById('inputPausa');
+    const totalInput = document.getElementById('inputTotal');
+
+    async function verificarDatos() {
+        const fecha = document.getElementById('inputFecha').value;
+        const horaEntrada = entradaInput.value;
+        const horaSalida = salidaInput.value;
+        
         const alertaBox = document.getElementById('alertaFecha');
         const alertaTexto = document.getElementById('textoAlerta');
+        const btnGuardar = document.querySelector('button[type="submit"]'); 
         
         if (!fecha) {
             alertaBox.style.display = 'none';
@@ -98,69 +130,87 @@
             const response = await fetch("{{ url_for('fichajes.verificar_fecha_ajax') }}", {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fecha: fecha })
+                body: JSON.stringify({ 
+                    fecha: fecha,
+                    hora_entrada: horaEntrada,
+                    hora_salida: horaSalida
+                })
             });
 
             const data = await response.json();
 
-            if (data.status === 'warning') {
+            // Limpiamos estados previos
+            alertaBox.classList.remove('alert-warning', 'alert-danger');
+            btnGuardar.disabled = false;
+
+            if (data.status === 'error') {
+                // CASO BLOQUEANTE (Solapamiento)
+                alertaBox.classList.add('alert-danger');
+                alertaTexto.innerHTML = `<i class="bi bi-x-octagon-fill"></i> ${data.message}`;
+                alertaBox.style.display = 'block';
+                btnGuardar.disabled = true;
+
+            } else if (data.status === 'warning') {
+                // CASO ADVERTENCIA
+                alertaBox.classList.add('alert-warning');
                 alertaTexto.innerHTML = data.messages.join('<br>');
                 alertaBox.style.display = 'block';
+                
             } else {
                 alertaBox.style.display = 'none';
                 alertaTexto.textContent = '';
             }
 
         } catch (error) {
-            console.error('Error verificando fecha:', error);
+            console.error('Error verificando:', error);
         }
-    });
-
-    // Validar fecha al cargar
-    if(document.getElementById('inputFecha').value) {
-        document.getElementById('inputFecha').dispatchEvent(new Event('change'));
     }
 
-    // --- 2. CÁLCULO DE HORAS EN TIEMPO REAL ---
-    const entradaInput = document.getElementById('inputEntrada');
-    const salidaInput = document.getElementById('inputSalida');
-    const pausaInput = document.getElementById('inputPausa');
-    const totalInput = document.getElementById('inputTotal');
-
     function calcularTotal() {
-        const entrada = entradaInput.value; // formato "HH:mm"
-        const salida = salidaInput.value;   // formato "HH:mm"
+        const entrada = entradaInput.value;
+        const salida = salidaInput.value;
         const pausa = parseInt(pausaInput.value) || 0;
 
         if (entrada && salida) {
             const [hEntrada, mEntrada] = entrada.split(':').map(Number);
             const [hSalida, mSalida] = salida.split(':').map(Number);
 
-            // Convertir todo a minutos desde medianoche
             const minutosEntrada = hEntrada * 60 + mEntrada;
             let minutosSalida = hSalida * 60 + mSalida;
 
-            // Manejo de turno nocturno (si salida es menor que entrada, sumamos 24h)
             if (minutosSalida < minutosEntrada) {
                 minutosSalida += 24 * 60;
             }
 
+            // Calculamos minutos totales efectivos
             const diffMinutos = (minutosSalida - minutosEntrada) - pausa;
-            const horasReales = Math.max(0, diffMinutos / 60); // Evitar negativos
+            
+            // Evitamos negativos
+            const totalMinutos = Math.max(0, diffMinutos);
 
-            totalInput.value = horasReales.toFixed(2) + " h";
+            // Convertimos a Horas y Minutos
+            const horasFinales = Math.floor(totalMinutos / 60);
+            const minutosFinales = totalMinutos % 60;
+
+            // Formateamos para que siempre tenga dos dígitos (ej: 08:05)
+            const hStr = horasFinales.toString().padStart(2, '0');
+            const mStr = minutosFinales.toString().padStart(2, '0');
+
+            totalInput.value = `${hStr}:${mStr} h`;
         } else {
-            totalInput.value = "0.00 h";
+            totalInput.value = "00:00 h";
         }
     }
 
-    // Escuchar eventos en los 3 campos
+    // Listeners
     [entradaInput, salidaInput, pausaInput].forEach(el => {
         el.addEventListener('input', calcularTotal);
         el.addEventListener('change', calcularTotal);
+        // Verificar también al perder foco en las horas para chequear solapamientos
+        el.addEventListener('blur', verificarDatos);
     });
 
-    // --- 3. HELPER PARA SUGERENCIAS ---
+    // Helper para sugerencias
     function aplicarHorario(entrada, salida, pausa) {
         document.getElementById('inputEntrada').value = entrada;
         document.getElementById('inputSalida').value = salida;
@@ -174,11 +224,14 @@
             setTimeout(() => el.classList.remove('bg-light'), 300);
         });
 
-        // IMPORTANTE: Recalcular al aplicar sugerencia
         calcularTotal();
+        verificarDatos(); // Re-verificar tras aplicar sugerencia
     }
     
-    // Calcular al cargar por si hay datos previos (ej. error de validación del server)
+    // Inicialización
     calcularTotal();
+    if(document.getElementById('inputFecha').value) {
+        verificarDatos();
+    }
 </script>
 {% endblock %}
