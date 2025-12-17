@@ -1,7 +1,7 @@
 from flask import render_template, request, redirect, url_for, flash
 from flask_login import current_user
 from werkzeug.security import generate_password_hash
-from sqlalchemy import func, or_, case, cast, Float
+from sqlalchemy import func, or_, case, cast, Float, extract
 from datetime import datetime, date, timedelta
 from calendar import monthrange
 
@@ -530,16 +530,45 @@ def admin_fichajes():
         query = query.filter(Fichaje.usuario_id == usuario_id)
     
     # Ordenar
-    fichajes = query.order_by(Fichaje.fecha.desc(), Fichaje.hora_entrada.asc()).all()
+    query = query.order_by(Fichaje.fecha.desc(), Fichaje.hora_entrada.asc())
     
-    # 5. Cargar lista de usuarios para el selector
+    # 5. PAGINACIÓN
+    page = request.args.get('page', type=int, default=1)
+    per_page = 50
+    
+    pagination = query.paginate(
+        page=page,
+        per_page=per_page,
+        error_out=False
+    )
+    
+    # 6. Calcular totales para el resumen rápido (Query Separada)
+    total_horas = db.session.query(
+        func.sum(
+            (
+                (extract('hour', Fichaje.hora_salida) * 3600 + 
+                 extract('minute', Fichaje.hora_salida) * 60) -
+                (extract('hour', Fichaje.hora_entrada) * 3600 + 
+                 extract('minute', Fichaje.hora_entrada) * 60)
+            ) / 3600.0 - (cast(Fichaje.pausa, Float) / 60.0)
+        )
+    ).filter(
+        Fichaje.es_actual == True,
+        Fichaje.tipo_accion != 'eliminacion',
+        Fichaje.fecha >= fecha_inicio,
+        Fichaje.fecha <= fecha_fin
+    )
+    
+    if usuario_id:
+        total_horas = total_horas.filter(Fichaje.usuario_id == usuario_id)
+        
+    total_horas = total_horas.scalar() or 0
+    
     usuarios = Usuario.query.order_by(Usuario.nombre).all()
     
-    # 6. Calcular totales para el resumen rápido
-    total_horas = sum(f.horas_trabajadas() for f in fichajes)
-    
     return render_template('/admin/admin_fichajes.html',
-                           fichajes=fichajes,
+                           fichajes=pagination.items,
+                           pagination=pagination,
                            usuarios=usuarios,
                            usuario_seleccionado=usuario_id,
                            mes_actual=mes,

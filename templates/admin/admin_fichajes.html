@@ -18,32 +18,33 @@
                 <select name="usuario_id" class="form-select" onchange="this.form.submit()">
                     <option value="">-- Todos los empleados --</option>
                     {% for u in usuarios %}
-                    <option value="{{ u.id }}" {% if u.id == usuario_seleccionado %}selected{% endif %}>
+                    <option value="{{ u.id }}" {% if u.id==usuario_seleccionado %}selected{% endif %}>
                         {{ u.nombre }} ({{ u.email }})
                     </option>
                     {% endfor %}
                 </select>
             </div>
-            
+
             <div class="col-md-3">
                 <label class="form-label">Mes</label>
                 <select name="mes" class="form-select" onchange="this.form.submit()">
-                    {% set meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] %}
+                    {% set meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto',
+                    'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] %}
                     {% for m in range(1, 13) %}
-                    <option value="{{ m }}" {% if m == mes_actual %}selected{% endif %}>{{ meses[m-1] }}</option>
+                    <option value="{{ m }}" {% if m==mes_actual %}selected{% endif %}>{{ meses[m-1] }}</option>
                     {% endfor %}
                 </select>
             </div>
-            
+
             <div class="col-md-3">
                 <label class="form-label">Año</label>
                 <select name="anio" class="form-select" onchange="this.form.submit()">
                     {% for a in range(2023, 2026) %}
-                    <option value="{{ a }}" {% if a == anio_actual %}selected{% endif %}>{{ a }}</option>
+                    <option value="{{ a }}" {% if a==anio_actual %}selected{% endif %}>{{ a }}</option>
                     {% endfor %}
                 </select>
             </div>
-            
+
             <div class="col-md-2">
                 <a href="{{ url_for('admin.admin_fichajes') }}" class="btn btn-outline-secondary w-100">Limpiar</a>
             </div>
@@ -55,9 +56,9 @@
     <span>
         Mostrando <strong>{{ fichajes|length }}</strong> registros.
         {% if usuario_seleccionado %}
-            Usuario filtrado.
+        Usuario filtrado.
         {% else %}
-            Todos los usuarios.
+        Todos los usuarios.
         {% endif %}
     </span>
     <span class="fs-5">Total Horas: <strong>{{ total_horas | formato_hora }}h</strong></span>
@@ -99,14 +100,16 @@
                             {% endif %}
                         </td>
                         <td class="text-end">
-                            <a href="{{ url_for('fichajes.editar', id=f.id) }}?next={{ request.full_path | urlencode }}" 
-                               class="btn btn-sm btn-warning">
+                            <a href="{{ url_for('fichajes.editar', id=f.id) }}?next={{ request.full_path | urlencode }}"
+                                class="btn btn-sm btn-warning">
                                 <i class="bi bi-pencil"></i>
                             </a>
-                            
-                            <form method="POST" action="{{ url_for('fichajes.eliminar', id=f.id) }}?next={{ request.full_path | urlencode }}" style="display:inline;">
-                                <button type="submit" class="btn btn-sm btn-danger" 
-                                        onclick="return confirm('¿Eliminar este fichaje de {{ f.usuario.nombre }}?')">
+
+                            <form method="POST"
+                                action="{{ url_for('fichajes.eliminar', id=f.id) }}?next={{ request.full_path | urlencode }}"
+                                style="display:inline;">
+                                <button type="submit" class="btn btn-sm btn-danger"
+                                    onclick="return confirm('¿Eliminar este fichaje de {{ f.usuario.nombre }}?')">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>
@@ -122,6 +125,55 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- ✅ AÑADIR PAGINACIÓN -->
+        {% if pagination and pagination.pages > 1 %}
+        <nav aria-label="Paginación" class="mt-4">
+            <ul class="pagination justify-content-center">
+                <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('admin.admin_fichajes', 
+                        page=pagination.prev_num if pagination.has_prev else 1, 
+                        usuario_id=usuario_seleccionado, 
+                        mes=mes_actual, 
+                        anio=anio_actual) }}">
+                        &laquo; Anterior
+                    </a>
+                </li>
+
+                {% for p in pagination.iter_pages(left_edge=1, right_edge=1) %}
+                {% if p %}
+                <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('admin.admin_fichajes', 
+                                page=p, 
+                                usuario_id=usuario_seleccionado, 
+                                mes=mes_actual, 
+                                anio=anio_actual) }}">
+                        {{ p }}
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+                {% endfor %}
+
+                <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('admin.admin_fichajes', 
+                        page=pagination.next_num if pagination.has_next else pagination.pages, 
+                        usuario_id=usuario_seleccionado, 
+                        mes=mes_actual, 
+                        anio=anio_actual) }}">
+                        Siguiente &raquo;
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <div class="text-center text-muted small">
+            Mostrando {{ (pagination.page - 1) * pagination.per_page + 1 }} -
+            {{ [pagination.page * pagination.per_page, pagination.total] | min }}
+            de {{ pagination.total }}
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

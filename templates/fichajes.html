@@ -15,15 +15,17 @@
     </div>
 </div>
 
+<!-- ========================================
+     FILTROS DE MES/AÑO
+     ======================================== -->
 <div class="card mb-4">
     <div class="card-body">
         <form method="GET" class="row g-3 align-items-end">
             <div class="col-auto">
                 <label class="form-label">Mes</label>
                 <select name="mes" class="form-select" onchange="this.form.submit()">
-                    {% set meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto',
-                    'Septiembre', 'Octubre',
-                    'Noviembre', 'Diciembre'] %}
+                    {% set meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                                   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] %}
                     {% for m in range(1, 13) %}
                     <option value="{{ m }}" {% if m==mes_actual %}selected{% endif %}>{{ meses[m-1] }}</option>
                     {% endfor %}
@@ -32,15 +34,43 @@
             <div class="col-auto">
                 <label class="form-label">Año</label>
                 <select name="anio" class="form-select" onchange="this.form.submit()">
-                    {% for a in range(2023, 2026) %}
+                    {% for a in range(2023, 2027) %}
                     <option value="{{ a }}" {% if a==anio_actual %}selected{% endif %}>{{ a }}</option>
                     {% endfor %}
                 </select>
             </div>
+            
+            <!-- ✅ NUEVO: Indicador de página actual -->
+            {% if pagination.pages > 1 %}
+            <div class="col-auto ms-auto">
+                <span class="badge bg-secondary">
+                    Página {{ pagination.page }} de {{ pagination.pages }}
+                </span>
+            </div>
+            {% endif %}
         </form>
     </div>
 </div>
 
+<!-- ========================================
+     ESTADÍSTICAS DEL MES
+     ======================================== -->
+<div class="alert alert-info d-flex justify-content-between align-items-center">
+    <span>
+        <i class="bi bi-calendar-check"></i>
+        <strong>{{ total_fichajes_mes }}</strong> fichajes en 
+        {% set meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] %}
+        {{ meses[mes_actual-1] }} {{ anio_actual }}
+    </span>
+    <span class="fs-5">
+        Total: <strong>{{ total_horas_mes | formato_hora }}h</strong>
+    </span>
+</div>
+
+<!-- ========================================
+     TABLA DE FICHAJES
+     ======================================== -->
 <div class="card">
     <div class="card-body">
         {% if fichajes %}
@@ -78,7 +108,7 @@
                                 {% set editor_nombre = fichaje.editor.nombre if fichaje.editor else 'Desconocido' %}
                                 <span class="badge bg-warning text-dark" 
                                       title="Rectificado por {{ editor_nombre }}">
-                                    <i class="bi bi-pencil-square"></i> Rectificado
+                                    <i class="bi bi-pencil-square"></i> v{{ fichaje.version }}
                                 </span>
                             {% else %}
                                 <span class="badge bg-success">Original</span>
@@ -90,17 +120,20 @@
                                     hora_salida=fichaje.hora_salida.strftime('%H:%M'),
                                     pausa=fichaje.pausa) }}" 
                                class="btn btn-sm btn-primary" 
-                               title="Clonar día (copiar a hoy)">
+                               title="Clonar">
                                 <i class="bi bi-files"></i>
                             </a>
 
-                            <a href="{{ url_for('fichajes.editar', id=fichaje.id) }}" class="btn btn-sm btn-warning">
+                            <a href="{{ url_for('fichajes.editar', id=fichaje.id) }}" 
+                               class="btn btn-sm btn-warning">
                                 <i class="bi bi-pencil"></i>
                             </a>
-                            <form method="POST" action="{{ url_for('fichajes.eliminar', id=fichaje.id) }}"
-                                style="display:inline;">
+                            
+                            <form method="POST" 
+                                  action="{{ url_for('fichajes.eliminar', id=fichaje.id) }}"
+                                  style="display:inline;">
                                 <button type="submit" class="btn btn-sm btn-danger"
-                                    onclick="return confirm('¿Seguro que deseas eliminar este fichaje? Se guardará registro de la eliminación.')">
+                                    onclick="return confirm('¿Seguro que deseas eliminar este fichaje?')">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>
@@ -110,8 +143,78 @@
                 </tbody>
             </table>
         </div>
+        
+        <!-- ========================================
+             CONTROLES DE PAGINACIÓN
+             ======================================== -->
+        {% if pagination.pages > 1 %}
+        <nav aria-label="Paginación de fichajes" class="mt-4">
+            <ul class="pagination justify-content-center">
+                <!-- Botón Primera Página -->
+                <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                    <a class="page-link" 
+                       href="{{ url_for('fichajes.listar', page=1, mes=mes_actual, anio=anio_actual) }}"
+                       aria-label="Primera">
+                        <span aria-hidden="true">&laquo;&laquo;</span>
+                    </a>
+                </li>
+                
+                <!-- Botón Anterior -->
+                <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                    <a class="page-link" 
+                       href="{{ url_for('fichajes.listar', page=pagination.prev_num, mes=mes_actual, anio=anio_actual) if pagination.has_prev else '#' }}"
+                       aria-label="Anterior">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                
+                <!-- Números de Página -->
+                {% for p in pagination.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
+                    {% if p %}
+                        <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                            <a class="page-link" 
+                               href="{{ url_for('fichajes.listar', page=p, mes=mes_actual, anio=anio_actual) }}">
+                                {{ p }}
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                <!-- Botón Siguiente -->
+                <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                    <a class="page-link" 
+                       href="{{ url_for('fichajes.listar', page=pagination.next_num, mes=mes_actual, anio=anio_actual) if pagination.has_next else '#' }}"
+                       aria-label="Siguiente">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+                
+                <!-- Botón Última Página -->
+                <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                    <a class="page-link" 
+                       href="{{ url_for('fichajes.listar', page=pagination.pages, mes=mes_actual, anio=anio_actual) }}"
+                       aria-label="Última">
+                        <span aria-hidden="true">&raquo;&raquo;</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <!-- Info de paginación -->
+        <div class="text-center text-muted small">
+            Mostrando {{ pagination.per_page * (pagination.page - 1) + 1 }} 
+            - 
+            {{ [pagination.per_page * pagination.page, pagination.total] | min }} 
+            de {{ pagination.total }} registros
+        </div>
+        {% endif %}
+        
         {% else %}
-        <p class="text-muted">No hay fichajes registrados.</p>
+        <p class="text-muted">No hay fichajes registrados en este período.</p>
         {% endif %}
     </div>
 </div>

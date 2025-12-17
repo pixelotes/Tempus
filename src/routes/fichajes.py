@@ -2,7 +2,8 @@ from flask import render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from datetime import datetime, date, timedelta
 from calendar import monthrange
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, cast, Float
+from sqlalchemy.sql import extract
 from src.utils import es_festivo, verificar_solapamiento, verificar_solapamiento_fichaje
 import uuid
 
@@ -14,29 +15,86 @@ from . import fichajes_bp
 @fichajes_bp.route('/fichajes')
 @login_required
 def listar():
+    """
+    Lista fichajes del usuario con paginación y filtros por mes/año.
+    """
+    # ========================================
+    # 1. OBTENER PARÁMETROS DE FILTRO Y PAGINACIÓN
+    # ========================================
     hoy = datetime.now()
     mes = request.args.get('mes', type=int, default=hoy.month)
     anio = request.args.get('anio', type=int, default=hoy.year)
+    page = request.args.get('page', type=int, default=1)
+    per_page = 50  # Mostrar 50 fichajes por página
 
+    # ========================================
+    # 2. VALIDAR Y CALCULAR RANGO DE FECHAS
+    # ========================================
     try:
         _, ultimo_dia = monthrange(anio, mes)
         fecha_inicio = date(anio, mes, 1)
         fecha_fin = date(anio, mes, ultimo_dia)
     except ValueError:
+        # Si mes/año inválidos, usar mes actual
         mes = hoy.month
         anio = hoy.year
         _, ultimo_dia = monthrange(anio, mes)
         fecha_inicio = date(anio, mes, 1)
         fecha_fin = date(anio, mes, ultimo_dia)
 
-    # Solo mostramos fichajes actuales y que NO sean de tipo 'eliminacion'
-    fichajes = Fichaje.query.filter_by(usuario_id=current_user.id, es_actual=True)\
-        .filter(Fichaje.tipo_accion != 'eliminacion')\
-        .filter(Fichaje.fecha >= fecha_inicio)\
-        .filter(Fichaje.fecha <= fecha_fin)\
-        .order_by(Fichaje.fecha.desc()).all()
-        
-    return render_template('fichajes.html', fichajes=fichajes, mes_actual=mes, anio_actual=anio)
+    # ========================================
+    # 3. QUERY BASE CON FILTROS
+    # ========================================
+    query = Fichaje.query.filter(
+        Fichaje.usuario_id == current_user.id,
+        Fichaje.es_actual == True,
+        Fichaje.tipo_accion != 'eliminacion',
+        Fichaje.fecha >= fecha_inicio,
+        Fichaje.fecha <= fecha_fin
+    ).order_by(Fichaje.fecha.desc(), Fichaje.hora_entrada.desc())
+
+    # ========================================
+    # 4. APLICAR PAGINACIÓN
+    # ========================================
+    pagination = query.paginate(
+        page=page,
+        per_page=per_page,
+        error_out=False  # No lanzar error si page > max_pages
+    )
+    
+    # ========================================
+    # 5. CALCULAR ESTADÍSTICAS DEL MES
+    # ========================================
+    # Query separada para totales (sin paginación)
+    total_horas_mes = db.session.query(
+        func.sum(
+            (
+                (extract('hour', Fichaje.hora_salida) * 3600 + 
+                 extract('minute', Fichaje.hora_salida) * 60) -
+                (extract('hour', Fichaje.hora_entrada) * 3600 + 
+                 extract('minute', Fichaje.hora_entrada) * 60)
+            ) / 3600.0 - (cast(Fichaje.pausa, Float) / 60.0)
+        )
+    ).filter(
+        Fichaje.usuario_id == current_user.id,
+        Fichaje.es_actual == True,
+        Fichaje.tipo_accion != 'eliminacion',
+        Fichaje.fecha >= fecha_inicio,
+        Fichaje.fecha <= fecha_fin
+    ).scalar() or 0
+    
+    total_fichajes_mes = query.count()
+    
+    # ========================================
+    # 6. RENDERIZAR TEMPLATE
+    # ========================================
+    return render_template('fichajes.html', 
+                         fichajes=pagination.items,
+                         pagination=pagination,
+                         mes_actual=mes, 
+                         anio_actual=anio,
+                         total_horas_mes=total_horas_mes,
+                         total_fichajes_mes=total_fichajes_mes)
 
 @fichajes_bp.route('/fichajes/crear', methods=['GET', 'POST'])
 @login_required
