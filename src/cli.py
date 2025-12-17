@@ -53,7 +53,9 @@ def cerrar_anio_command(anio_origen, max_carryover, gestionar_festivos, anios_an
     usuarios = Usuario.query.all()
     
     # Calcular festivos afectados
-    anio_limite = anio_origen - anios_antiguedad + 1  # Si anios_antiguedad=1 y anio_origen=2024, limite=2024
+    # FIX: Archive festivos before the NEW year (includes the closing year)
+    # With anios_antiguedad=1 and closing 2024→2025: limite=2025, so festivos < 2025-01-01 are archived
+    anio_limite = anio_nuevo - anios_antiguedad + 1
     festivos_antiguos = Festivo.query.filter(
         Festivo.fecha < date(anio_limite, 1, 1),
         Festivo.activo == True
