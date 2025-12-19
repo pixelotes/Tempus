@@ -298,4 +298,37 @@ def import_users_command(csv_file):
 
     db.session.commit()
     print(f"\nResumen: {count_new} creados, {count_skip} saltados.")
+
+
+@click.command('init-admin')
+@with_appcontext
+def init_admin_command():
+    """
+    Crea el usuario administrador inicial basado en variables de entorno.
+    """
+    from werkzeug.security import generate_password_hash
+    from flask import current_app
+    
+    email = current_app.config.get('DEFAULT_ADMIN_EMAIL')
+    password = current_app.config.get('DEFAULT_ADMIN_INITIAL_PASSWORD')
+    
+    if not email or not password:
+        print("❌ Error: DEFAULT_ADMIN_EMAIL o DEFAULT_ADMIN_INITIAL_PASSWORD no definidos.")
+        return
+
+    existing = Usuario.query.filter_by(email=email).first()
+    if existing:
+        print(f"ℹ️ El usuario administrador ({email}) ya existe.")
+        return
+
+    admin = Usuario(
+        nombre='Administrador',
+        email=email,
+        password=generate_password_hash(password),
+        rol='admin',
+        dias_vacaciones=25
+    )
+    db.session.add(admin)
+    db.session.commit()
+    print(f"✅ Usuario Administrador creado: {email}")
     

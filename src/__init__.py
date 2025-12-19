@@ -38,6 +38,8 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('SQLALCHEMY_DATABASE_URI'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = os.environ.get('SQLALCHEMY_TRACK_MODIFICATIONS', 'False').lower() == 'true'
 app.config['GOOGLE_CALENDAR_ID'] = os.environ.get('GOOGLE_CALENDAR_ID', 'primary')
 app.config['MFA_ENABLED'] = os.environ.get('MFA_ENABLED', 'True').lower() == 'true'
+app.config['DEFAULT_ADMIN_EMAIL'] = os.environ.get('DEFAULT_ADMIN_EMAIL', 'admin@example.com')
+app.config['DEFAULT_ADMIN_INITIAL_PASSWORD'] = os.environ.get('DEFAULT_ADMIN_INITIAL_PASSWORD', 'admin123')
 
 # Configuración de Flask-Dance (Google)
 app.config["GOOGLE_OAUTH_CLIENT_ID"] = os.environ.get("GOOGLE_OAUTH_CLIENT_ID")
@@ -109,45 +111,25 @@ app.register_blueprint(fichajes_bp)
 app.register_blueprint(ausencias_bp)
 app.register_blueprint(admin_bp)
 
-# INICIALIZACIÓN DE BBDD
-@app.before_request
-def init_db():
-    if not hasattr(app, 'db_initialized'):
-        db.create_all()
-        
-        # 1. Crear usuario admin si no existe
-        if not Usuario.query.filter_by(email='admin@example.com').first():
-            admin = Usuario(
-                nombre='Administrador',
-                email='admin@example.com',
-                password=generate_password_hash('admin123'),
-                rol='admin',
-                dias_vacaciones=25
-            )
-            db.session.add(admin)
-            db.session.commit()
-            print("✅ Usuario Administrador creado.")
-        
-        # 2. Crear Tipo de Ausencia por defecto "Otros" si no existe
-        if not TipoAusencia.query.filter_by(nombre='Otros').first():
-            otros = TipoAusencia(
-                nombre='Otros',
-                descripcion='Otras causas justificadas',
-                max_dias=365,
-                tipo_dias='naturales',
-                requiere_justificante=True,
-                descuenta_vacaciones=False
-            )
-            db.session.add(otros)
-            db.session.commit()
-            print("✅ Tipo de ausencia 'Otros' creado automáticamente.")
-
-        
+# INICIALIZACIÓN DE BBDD AL ARRANQUE
+with app.app_context():
+    db.create_all()
+    # 1. Crear Tipo de Ausencia por defecto "Otros" si no existe
+    if not TipoAusencia.query.filter_by(nombre='Otros').first():
+        otros = TipoAusencia(
+            nombre='Otros',
+            descripcion='Otras causas justificadas',
+            max_dias=365,
+            tipo_dias='naturales',
+            requiere_justificante=True,
+            descuenta_vacaciones=False
+        )
+        db.session.add(otros)
         db.session.commit()
-        
-        
-        app.db_initialized = True
+        print("✅ Tipo de ausencia 'Otros' creado automáticamente.")
 
-from src.cli import cerrar_anio_command, import_users_command
+
+from src.cli import cerrar_anio_command, import_users_command, init_admin_command
 app.cli.add_command(cerrar_anio_command)
 app.cli.add_command(import_users_command)
+app.cli.add_command(init_admin_command)
