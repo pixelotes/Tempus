@@ -116,6 +116,8 @@ class Fichaje(db.Model):
         
         # 2. Índice secundario: Para agrupaciones por UUID (historial de versiones)
         db.Index('idx_fichaje_grupo', 'grupo_id'),
+
+        db.Index('idx_fichaje_fecha', 'fecha'),
     )
     
     id = db.Column(db.Integer, primary_key=True)
@@ -255,9 +257,29 @@ class SolicitudBaja(db.Model):
     
     aprobador = db.relationship('Usuario', foreign_keys=[aprobador_id])
     usuario = db.relationship('Usuario', foreign_keys=[usuario_id], back_populates='solicitudes_bajas')
+
+    # Relación con attachments (uno a muchos)
+    attachments = db.relationship(
+        'Attachment',
+        primaryjoin="and_(SolicitudBaja.id==foreign(Attachment.entidad_id), "
+                    "Attachment.tipo_entidad=='baja', "
+                    "Attachment.activo==True)",
+        viewonly=True,  # No gestiona la relación automáticamente
+        lazy='dynamic'  # Permite queries adicionales
+    )
     
     def __repr__(self):
         return f'<SolicitudBaja {self.usuario.nombre} - {self.fecha_inicio}>'
+
+    @property
+    def tiene_attachments(self):
+        """Verifica si esta baja tiene archivos adjuntos"""
+        return self.attachments.count() > 0
+    
+    @property
+    def attachments_activos(self):
+        """Retorna lista de attachments activos"""
+        return self.attachments.filter_by(activo=True).all()
 
 
 class Aprobador(db.Model):
@@ -281,6 +303,141 @@ class Festivo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     fecha = db.Column(db.Date, nullable=False, unique=True)
     descripcion = db.Column(db.String(200), nullable=False)
+    activo = db.Column(db.Boolean, default=True, nullable=False)  # ✅ AÑADIR
     
     def __repr__(self):
         return f'<Festivo {self.fecha} - {self.descripcion}>'
+
+class Attachment(db.Model):
+    """
+    Modelo genérico para almacenar adjuntos/archivos.
+    Puede asociarse a diferentes entidades (bajas, vacaciones, etc.)
+    """
+    __tablename__ = 'attachments'
+    
+    # Índices para optimizar búsquedas
+    __table_args__ = (
+        db.Index('idx_attachment_entidad', 'tipo_entidad', 'entidad_id', 'activo'),
+        db.Index('idx_attachment_usuario', 'uploaded_by', 'fecha_subida'),
+    )
+    
+    # ==========================================
+    # CAMPOS PRINCIPALES
+    # ==========================================
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Identificación del archivo
+    nombre_original = db.Column(db.String(255), nullable=False)  # Nombre original del archivo
+    nombre_almacenado = db.Column(db.String(255), nullable=False, unique=True)  # UUID único en disco
+    extension = db.Column(db.String(10), nullable=False)  # .pdf, .jpg, .png, etc.
+    mime_type = db.Column(db.String(100))  # application/pdf, image/jpeg, etc.
+    
+    # Metadatos del archivo
+    tamano_bytes = db.Column(db.Integer, nullable=False)  # Tamaño en bytes
+    hash_sha256 = db.Column(db.String(64))  # Hash para verificar integridad (opcional)
+    
+    # Ruta de almacenamiento
+    # Ejemplo: "uploads/bajas/2024/12/uuid.pdf"
+    ruta_relativa = db.Column(db.String(500), nullable=False)
+    
+    # ==========================================
+    # ASOCIACIÓN POLIMÓRFICA
+    # ==========================================
+    # Permite asociar a diferentes tipos de entidades
+    tipo_entidad = db.Column(db.String(50), nullable=False)  # 'baja', 'vacaciones', 'fichaje', etc.
+    entidad_id = db.Column(db.Integer, nullable=False)  # ID de la entidad asociada
+    
+    # Opcional: Descripción/notas del adjunto
+    descripcion = db.Column(db.String(500))  # "Justificante médico", "Parte de baja", etc.
+    categoria = db.Column(db.String(50))  # "justificante", "informe", "parte_baja", etc.
+    
+    # ==========================================
+    # AUDITORÍA
+    # ==========================================
+    uploaded_by = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    fecha_subida = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Soft delete
+    activo = db.Column(db.Boolean, default=True, nullable=False)
+    fecha_eliminacion = db.Column(db.DateTime)
+    eliminado_por = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+    motivo_eliminacion = db.Column(db.String(255))
+    
+    # ==========================================
+    # CONTROL DE ACCESO (FUTURO)
+    # ==========================================
+    publico = db.Column(db.Boolean, default=False)  # Si es visible para todos o solo admin/aprobadores
+    
+    # ==========================================
+    # RELACIONES
+    # ==========================================
+    # Usuario que subió el archivo
+    uploader = db.relationship('Usuario', foreign_keys=[uploaded_by], backref='attachments_subidos')
+    
+    # Usuario que eliminó el archivo (si aplica)
+    deleter = db.relationship('Usuario', foreign_keys=[eliminado_por])
+    
+    def __repr__(self):
+        return f'<Attachment {self.nombre_original} ({self.tipo_entidad}:{self.entidad_id})>'
+    
+    # ==========================================
+    # MÉTODOS DE UTILIDAD
+    # ==========================================
+    
+    @property
+    def tamano_legible(self):
+        """Retorna el tamaño en formato legible (KB, MB, etc.)"""
+        bytes = self.tamano_bytes
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if bytes < 1024.0:
+                return f"{bytes:.1f} {unit}"
+            bytes /= 1024.0
+        return f"{bytes:.1f} TB"
+    
+    @property
+    def es_imagen(self):
+        """Verifica si el archivo es una imagen"""
+        return self.mime_type and self.mime_type.startswith('image/')
+    
+    @property
+    def es_pdf(self):
+        """Verifica si el archivo es un PDF"""
+        return self.mime_type == 'application/pdf' or self.extension.lower() == '.pdf'
+    
+    def url_descarga(self):
+        """
+        Genera la URL de descarga del archivo (a implementar en routes).
+        Placeholder para futura implementación.
+        """
+        return f'/attachments/download/{self.id}'
+    
+    def puede_ver(self, usuario):
+        """
+        Verifica si un usuario puede ver este attachment (a extender).
+        Por ahora: solo el uploader, admin, o aprobadores.
+        """
+        if usuario.rol == 'admin':
+            return True
+        if self.uploaded_by == usuario.id:
+            return True
+        if self.publico:
+            return True
+
+        return False
+
+class UserKnownIP(db.Model):
+    __tablename__ = 'user_known_ips'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    ip_address = db.Column(db.String(45), nullable=False) # Supports IPv4 and IPv6
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_seen = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Index for fast lookups during login
+    __table_args__ = (
+        db.Index('idx_user_ip', 'usuario_id', 'ip_address'),
+    )
+
+    def __repr__(self):
+        return f'<UserKnownIP {self.ip_address} - User {self.usuario_id}>'

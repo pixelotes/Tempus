@@ -1,4 +1,4 @@
-from flask import render_template, request, jsonify, flash, redirect, url_for
+from flask import render_template, request, jsonify, flash, redirect, url_for, current_app
 from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta, date
@@ -58,6 +58,17 @@ def index():
                            horas_semana=horas_semana,
                            fichajes_hoy=fichajes_hoy,
                            fichajes_semana=fichajes_semana)
+
+@main_bp.before_app_request
+def check_admin_password():
+    if current_user.is_authenticated and current_user.rol == 'admin':
+        # Evitar bucle si ya estamos en perfil intentando cambiarla
+        if request.endpoint == 'main.perfil':
+            return
+            
+        default_pass = current_app.config.get('DEFAULT_ADMIN_INITIAL_PASSWORD', 'admin123')
+        if check_password_hash(current_user.password, default_pass):
+            flash('⚠️ Seguridad: Estás usando la contraseña de administrador por defecto. Por favor, cámbiala en tu perfil.', 'warning')
 
 @main_bp.route('/perfil', methods=['GET', 'POST'])
 @login_required

@@ -1,6 +1,6 @@
 import pytest
-from src import app, db
-from src.models import Usuario, TipoAusencia, Aprobador
+from src import app, db, limiter
+from src.models import Usuario, TipoAusencia, Aprobador, UserKnownIP
 from werkzeug.security import generate_password_hash
 
 @pytest.fixture
@@ -10,8 +10,14 @@ def test_app():
         "TESTING": True,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "WTF_CSRF_ENABLED": False,
-        "SERVER_NAME": "localhost.localdomain"
+        "SERVER_NAME": "localhost.localdomain",
+        "RATELIMIT_ENABLED": False,  # Disable rate limiting for tests
+        "MFA_ENABLED": True,         # Ensure MFA is on by default for tests
+        "DEFAULT_ADMIN_INITIAL_PASSWORD": "admin123"
     })
+
+    # Reset limiter storage to avoid rate limit carryover between tests
+    limiter.reset()
 
     # Contexto de la aplicación
     with app.app_context():
@@ -39,6 +45,12 @@ def admin_user(test_app):
     )
     db.session.add(user)
     db.session.commit()
+    
+    # Whitelist IP for tests
+    known_ip = UserKnownIP(usuario_id=user.id, ip_address='127.0.0.1')
+    db.session.add(known_ip)
+    db.session.commit()
+    
     return user
 
 @pytest.fixture
@@ -52,6 +64,12 @@ def employee_user(test_app):
     )
     db.session.add(user)
     db.session.commit()
+    
+    # Whitelist IP for tests
+    known_ip = UserKnownIP(usuario_id=user.id, ip_address='127.0.0.1')
+    db.session.add(known_ip)
+    db.session.commit()
+
     return user
 
 @pytest.fixture
@@ -64,6 +82,11 @@ def approver_user(test_app, employee_user):
         rol='aprobador'
     )
     db.session.add(user)
+    db.session.commit()
+
+    # Whitelist IP for tests
+    known_ip = UserKnownIP(usuario_id=user.id, ip_address='127.0.0.1')
+    db.session.add(known_ip)
     db.session.commit()
     
     # 2. Asignar employee_user a cargo de este aprobador
