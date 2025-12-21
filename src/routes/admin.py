@@ -1,4 +1,4 @@
-from flask import render_template, request, redirect, url_for, flash
+from flask import current_app, render_template, request, redirect, url_for, flash
 from flask_login import current_user
 from werkzeug.security import generate_password_hash
 from sqlalchemy import func, or_, case, cast, Float, extract
@@ -87,6 +87,20 @@ def admin_crear_usuario():
         db.session.add(saldo)
         
         db.session.commit()
+
+        # Log de auditoría
+        current_app.logger.info(
+            f"Usuario creado: {email}",
+            extra={
+                "event.action": "user-creation",
+                "event.category": ["iam", "configuration"],
+                "user.target.email": email,
+                "user.target.role": rol,
+                "actor.email": current_user.email, # Quién hizo la acción
+                "actor.id": current_user.id
+            }
+        )
+        
         flash('Usuario creado correctamente', 'success')
         return redirect(url_for('admin.admin_usuarios'))
     
@@ -108,6 +122,25 @@ def admin_editar_usuario(id):
             usuario.password = generate_password_hash(password)
         
         db.session.commit()
+
+        # --- LOGGING INICIO ---
+        current_app.logger.info(
+            f"Usuario editado: {usuario.email}",
+            extra={
+                "event.action": "user-update",
+                "event.category": ["iam", "configuration"],
+                "event.module": "admin",
+                "user.target.id": usuario.id,
+                "user.target.email": usuario.email,
+                "user.target.role": usuario.rol,
+                "user.changes.password": password_changed, # Info útil de seguridad
+                "actor.email": current_user.email,
+                "actor.id": current_user.id,
+                "source.ip": request.remote_addr
+            }
+        )
+        # --- LOGGING FIN ---
+        
         flash('Usuario actualizado correctamente', 'success')
         return redirect(url_for('admin.admin_usuarios'))
     
@@ -119,6 +152,24 @@ def admin_eliminar_usuario(id):
     usuario = Usuario.query.get_or_404(id)
     db.session.delete(usuario)
     db.session.commit()
+
+    # --- LOGGING INICIO ---
+    current_app.logger.info(
+        f"Usuario eliminado: {target_email}",
+        extra={
+            "event.action": "user-deletion",
+            "event.category": ["iam", "configuration"],
+            "event.outcome": "success",
+            "user.target.id": target_id,
+            "user.target.email": target_email,
+            "user.target.role": target_role,
+            "actor.email": current_user.email,
+            "actor.id": current_user.id,
+            "source.ip": request.remote_addr
+        }
+    )
+    # --- LOGGING FIN ---
+    
     flash('Usuario eliminado correctamente', 'success')
     return redirect(url_for('admin.admin_usuarios'))
 
