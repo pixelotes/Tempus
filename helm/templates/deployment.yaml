@@ -40,9 +40,13 @@ spec:
             # Forzamos la ruta a /data/fichaje.db para usar el volumen persistente
             {{- else if eq .Values.database.type "sqlite" }}
             - name: SQLALCHEMY_DATABASE_URI
+              {{- if .Values.database.sqlite.persistence.enabled }}
               value: sqlite:////data/fichaje.db
+              {{- else }}
+              value: sqlite:////app/fichaje.db
+              {{- end }}
             {{- end }}
-
+            
             # --- 2. Variables de Entorno Extra (values.yaml) ---
             {{- range $key, $value := .Values.env }}
             - name: {{ $key }}
