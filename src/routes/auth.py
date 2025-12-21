@@ -1,4 +1,4 @@
-from flask import render_template, request, redirect, url_for, flash, session, current_app
+from flask import current_app, render_template, request, redirect, url_for, flash, session, current_app
 from datetime import datetime, timedelta
 import random
 from flask_login import login_user, logout_user, login_required, current_user
@@ -90,8 +90,29 @@ def login():
         usuario = Usuario.query.filter_by(email=email).first()
         
         if usuario and check_password_hash(usuario.password, password):
+            # Log de éxito
+            current_app.logger.info(
+                "Inicio de sesión exitoso",
+                extra={
+                    "user.email": usuario.email,
+                    "user.id": usuario.id,
+                    "event.action": "login",
+                    "event.outcome": "success",
+                    "source.ip": request.remote_addr
+                }
+            )
             return verify_ip_and_login(usuario)
         else:
+            # Log de fallo
+            current_app.logger.warning(
+                "Intento de inicio de sesión fallido",
+                extra={
+                    "user.email": email, # El que intentaron usar
+                    "event.action": "login",
+                    "event.outcome": "failure",
+                    "source.ip": request.remote_addr
+                }
+            )
             flash('Email o contraseña incorrectos', 'danger')
     
     return render_template('login.html')

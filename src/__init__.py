@@ -1,8 +1,14 @@
-from flask import Flask, redirect, url_for, flash, render_template
+from flask import Flask, redirect, url_for, flash, render_template, request
 from flask_login import LoginManager, current_user
 from werkzeug.security import generate_password_hash
 from functools import wraps
 import os
+
+# Imports para Logging (ECS + Rotación)
+import logging
+from logging.handlers import RotatingFileHandler
+import ecs_logging
+import sys
 
 # Protección contra ataques de fuerza bruta
 from flask_limiter import Limiter
@@ -23,8 +29,47 @@ from src.utils import decimal_to_human
 # Permitir transporte inseguro para OAuth en desarrollo (HTTP)
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
+# CONFIGURACIÓN DE LOGGING (ECS + Rotación)
+def configure_logging(app):
+    # Configurar el logger raíz de la aplicación
+    logger = logging.getLogger(app.name)
+    logger.setLevel(logging.INFO)
+
+    # Configurar directorio
+    log_dir = 'logs'
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
+    # 1. Handler para archivo (JSON ECS)
+    # Rota cada 10MB, mantiene 5 backups. Nombre: tempus.json
+    log_file_path = os.path.join(log_dir, 'tempus.json')
+    file_handler = RotatingFileHandler(log_file_path, maxBytes=10*1024*1024, backupCount=5)
+    file_handler.setFormatter(ecs_logging.StdlibFormatter())
+
+    # 2. Handler para consola (útil para ver logs en tiempo real en kubectl logs)
+    # Formato simple para lectura humana en consola, o podrías usar ECS también
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+
+    # Limpiamos handlers anteriores para evitar duplicados si se recarga
+    logger.handlers = []
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    
+    # Enganchar el logger de la app de Flask al que acabamos de configurar
+    app.logger.handlers = logger.handlers
+    app.logger.setLevel(logger.level)
+    
+    # Opcional: Enganchar gunicorn.error si estamos en producción
+    gunicorn_logger = logging.getLogger('gunicorn.error')
+    if gunicorn_logger.handlers:
+        app.logger.handlers.extend(gunicorn_logger.handlers)
+
 # CREACIÓN Y CONFIGURACIÓN DE LA APP
 app = Flask(__name__, template_folder='../templates')
+
+# INICIALIZAR LOGGING
+configure_logging(app)
 
 # CONFIGURACIÓN DE OAUTHLIB
 if app.config.get('FLASK_DEBUG'):
@@ -59,9 +104,19 @@ limiter = Limiter(
     storage_uri="memory://"
 )
 
-# Manejador personalizado para el error 429 (Too Many Requests)
+# Manejador personalizado para el error 429 (Too Many Requests) con Logging
 @app.errorhandler(429)
 def ratelimit_handler(e):
+    app.logger.warning(
+        "Rate limit excedido",
+        extra={
+            "event.action": "rate-limit",
+            "source.ip": get_remote_address(),
+            "http.request.method": request.method,
+            "url.path": request.path,
+            "error.message": e.description
+        }
+    )
     return render_template('429.html', error=e.description), 429
 
 # INICIALIZACIÓN DE EXTENSIONES
