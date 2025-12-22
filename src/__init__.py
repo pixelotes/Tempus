@@ -92,7 +92,8 @@ app.config["GOOGLE_OAUTH_CLIENT_SECRET"] = os.environ.get("GOOGLE_OAUTH_CLIENT_S
 
 google_bp = make_google_blueprint(
     scope=["profile", "email"],
-    redirect_to="auth.google_logged_in"
+    redirect_to="main.index",
+    redirect_url_to="main.index"
 )
 app.register_blueprint(google_bp, url_prefix="/login")
 
