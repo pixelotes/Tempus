@@ -1,6 +1,7 @@
 from flask import Flask, redirect, url_for, flash, render_template, request
 from flask_login import LoginManager, current_user
 from werkzeug.security import generate_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 from functools import wraps
 import os
 
@@ -28,6 +29,7 @@ from src.utils import decimal_to_human
 
 # Permitir transporte inseguro para OAuth en desarrollo (HTTP)
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+
 
 # CONFIGURACIÓN DE LOGGING (ECS + Rotación)
 def configure_logging(app):
@@ -67,6 +69,9 @@ def configure_logging(app):
 
 # CREACIÓN Y CONFIGURACIÓN DE LA APP
 app = Flask(__name__, template_folder='../templates')
+
+# ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 # INICIALIZAR LOGGING
 configure_logging(app)
