@@ -12,6 +12,17 @@
 
 <div class="card">
     <div class="card-body">
+        {# Buscador AJAX #}
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" id="user_search_input" class="form-control" placeholder="Buscar usuario...">
+                    <input type="hidden" id="user_search_id">
+                </div>
+            </div>
+        </div>
+
         <div class="table-responsive">
             <table class="table table-hover">
                 <thead>
@@ -26,7 +37,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for usuario in usuarios %}
+                    {% for usuario in usuarios.items %}
                     <tr>
                         <td>{{ usuario.id }}</td>
                         <td>{{ usuario.nombre }}</td>
@@ -43,12 +54,15 @@
                         <td>{{ usuario.dias_vacaciones }}</td>
                         <td>{{ usuario.fecha_alta.strftime('%d/%m/%Y') }}</td>
                         <td>
-                            <a href="{{ url_for('admin.admin_editar_usuario', id=usuario.id) }}" class="btn btn-sm btn-warning">
+                            <a href="{{ url_for('admin.admin_editar_usuario', id=usuario.id) }}"
+                                class="btn btn-sm btn-warning">
                                 <i class="bi bi-pencil"></i>
                             </a>
                             {% if usuario.id != current_user.id %}
-                            <form method="POST" action="{{ url_for('admin.admin_eliminar_usuario', id=usuario.id) }}" style="display:inline;">
-                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('¿Eliminar este usuario?')">
+                            <form method="POST" action="{{ url_for('admin.admin_eliminar_usuario', id=usuario.id) }}"
+                                style="display:inline;">
+                                <button type="submit" class="btn btn-sm btn-danger"
+                                    onclick="return confirm('¿Eliminar este usuario?')">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>
@@ -59,6 +73,50 @@
                 </tbody>
             </table>
         </div>
+
+        {# Controles de paginación #}
+        <nav aria-label="Navegación de usuarios" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {# Botón Anterior #}
+                <li class="page-item {% if not usuarios.has_prev %}disabled{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('admin.admin_usuarios', page=usuarios.prev_num) if usuarios.has_prev else '#' }}">Anterior</a>
+                </li>
+
+                {# Números de página #}
+                {% for page_num in usuarios.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if page_num %}
+                <li class="page-item {% if page_num == usuarios.page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('admin.admin_usuarios', page=page_num) }}">{{ page_num }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+                {% endfor %}
+
+                {# Botón Siguiente #}
+                <li class="page-item {% if not usuarios.has_next %}disabled{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('admin.admin_usuarios', page=usuarios.next_num) if usuarios.has_next else '#' }}">Siguiente</a>
+                </li>
+            </ul>
+        </nav>
     </div>
 </div>
+
+<script src="{{ url_for('static', filename='js/user_search.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Setup del buscador
+        setupUserSearch('user_search_input', 'user_search_id');
+
+        // Redirección al seleccionar
+        const hidden = document.getElementById('user_search_id');
+        hidden.addEventListener('change', function () {
+            if (this.value) {
+                window.location.href = "/admin/usuarios/editar/" + this.value;
+            }
+        });
+    });
+</script>
 {% endblock %}
