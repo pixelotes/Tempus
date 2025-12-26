@@ -57,6 +57,9 @@ function setupUserSearch(textInputId, hiddenInputId, autoSubmit = false) {
                                 hidden.value = user.id;
                                 resultsDiv.style.display = 'none';
 
+                                // Dispatch change event so external listeners can react
+                                hidden.dispatchEvent(new Event('change', { bubbles: true }));
+
                                 if (autoSubmit && input.form) {
                                     input.form.submit();
                                 }
