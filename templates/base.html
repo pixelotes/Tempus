@@ -107,55 +107,63 @@
         </a>
 
         <div class="text px-3 mt-3 mb-2 small" style="color: white;">PRINCIPAL</div>
-        <a href="{{ url_for('fichajes.listar') }}" {% if 'fichajes.listar' in request.endpoint %}class="active" {% endif %}>
+        <a href="{{ url_for('fichajes.listar') }}" {% if 'fichajes.listar' in request.endpoint %}class="active" {% endif
+            %}>
             <i class="bi bi-clock"></i> Mis Fichajes
         </a>
-        <a href="{{ url_for('ausencias.listar_vacaciones') }}" {% if 'vacaciones' in request.endpoint %}class="active" {% endif %}>
+        <a href="{{ url_for('ausencias.listar_vacaciones') }}" {% if 'vacaciones' in request.endpoint %}class="active"
+            {% endif %}>
             <i class="bi bi-calendar-check"></i> Mis Vacaciones
         </a>
-        <a href="{{ url_for('ausencias.listar_bajas') }}" {% if 'bajas' in request.endpoint %}class="active" {% endif %}>
+        <a href="{{ url_for('ausencias.listar_bajas') }}" {% if 'bajas' in request.endpoint %}class="active" {% endif
+            %}>
             <i class="bi bi-bandaid"></i> Mis Ausencias
         </a>
-        <a href="{{ url_for('main.cronograma') }}" {% if request.endpoint=='main.cronograma' %}class="active" {% endif %}>
+        <a href="{{ url_for('main.cronograma') }}" {% if request.endpoint=='main.cronograma' %}class="active" {% endif
+            %}>
             <i class="bi bi-calendar3"></i> Cronograma
         </a>
 
         {% if current_user.rol in ['aprobador', 'admin'] %}
         <div class="text px-3 mt-3 mb-2 small" style="color: white;">APROBACIÓN</div>
-        <a href="{{ url_for('ausencias.aprobar_solicitudes') }}" {% if request.endpoint=='ausencias.aprobar_solicitudes' %}class="active" {%
-            endif %}>
+        <a href="{{ url_for('ausencias.aprobar_solicitudes') }}" {% if request.endpoint=='ausencias.aprobar_solicitudes'
+            %}class="active" {% endif %}>
             <i class="bi bi-check-circle"></i> Aprobar Solicitudes
         </a>
         {% endif %}
 
         {% if current_user.rol == 'admin' %}
         <div class="text px-3 mt-3 mb-2 small" style="color: white;">ADMINISTRACIÓN</div>
-        <a href="{{ url_for('admin.admin_usuarios') }}" {% if 'admin_usuarios' in request.endpoint %}class="active" {% endif
-            %}>
+        <a href="{{ url_for('admin.admin_usuarios') }}" {% if 'admin_usuarios' in request.endpoint %}class="active" {%
+            endif %}>
             <i class="bi bi-people"></i> Usuarios
         </a>
-        <a href="{{ url_for('admin.admin_aprobadores') }}" {% if 'admin_aprobadores' in request.endpoint %}class="active" {%
-            endif %}>
+        <a href="{{ url_for('admin.admin_aprobadores') }}" {% if 'admin_aprobadores' in request.endpoint
+            %}class="active" {% endif %}>
             <i class="bi bi-person-check"></i> Aprobadores
         </a>
-        <a href="{{ url_for('admin.admin_tipos_ausencia') }}" {% if 'admin_tipos' in request.endpoint %}class="active" {% endif %}>
+        <a href="{{ url_for('admin.admin_tipos_ausencia') }}" {% if 'admin_tipos' in request.endpoint %}class="active"
+            {% endif %}>
             <i class="bi bi-clipboard-pulse"></i> Tipos de Ausencia
         </a>
-        <a href="{{ url_for('admin.admin_festivos') }}" {% if 'admin_festivos' in request.endpoint %}class="active" {% endif
-            %}>
+        <a href="{{ url_for('admin.admin_festivos') }}" {% if 'admin_festivos' in request.endpoint %}class="active" {%
+            endif %}>
             <i class="bi bi-calendar-event"></i> Festivos
         </a>
-        <a href="{{ url_for('admin.admin_fichajes') }}" {% if 'admin_fichajes' in request.endpoint %}class="active" {% endif %}>
+        <a href="{{ url_for('admin.admin_fichajes') }}" {% if 'admin_fichajes' in request.endpoint %}class="active" {%
+            endif %}>
             <i class="bi bi-clock-history"></i> Resumen Fichajes
         </a>
-        <a href="{{ url_for('admin.admin_gestion_ausencias') }}" {% if 'gestion_ausencias' in request.endpoint %}class="active" {% endif %}>
+        <a href="{{ url_for('admin.admin_gestion_ausencias') }}" {% if 'gestion_ausencias' in request.endpoint
+            %}class="active" {% endif %}>
             <i class="bi bi-calendar-range"></i> Resumen Ausencias
         </a>
-        <a href="{{ url_for('admin.admin_resumen') }}" {% if request.endpoint=='admin.admin_resumen' %}class="active" {% endif %}>
+        <a href="{{ url_for('admin.admin_resumen') }}" {% if request.endpoint=='admin.admin_resumen' %}class="active" {%
+            endif %}>
             <i class="bi bi-file-earmark-bar-graph"></i> Resumen Global
         </a>
-        <a href="{{ url_for('admin.admin_auditoria') }}" {% if request.endpoint=='admin.admin_auditoria' %}class="active" {% endif
-            %}>
+        <a href="{{ url_for('admin.admin_auditoria') }}" {% if request.endpoint=='admin.admin_auditoria'
+            %}class="active" {% endif %}>
             <i class="bi bi-shield-check"></i> Auditoría
         </a>
         {% endif %}
@@ -165,7 +173,7 @@
     <div class="{% if current_user.is_authenticated %}main-content{% else %}container mt-5{% endif %}">
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-        {% for category, message in messages %}
+        {% for category, message in messages | unique %}
         <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show"
             role="alert">
             {{ message }}
