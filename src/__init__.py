@@ -115,11 +115,16 @@ limiter = Limiter(
 # Manejador personalizado para el error 429 (Too Many Requests) con Logging
 @app.errorhandler(429)
 def ratelimit_handler(e):
+    # 1. Capturamos la IP en una variable
+    ip_origen = get_remote_address() 
+    
     app.logger.warning(
-        "Rate limit excedido",
+        # 2. AÑADIMOS LA IP AL MENSAJE DE TEXTO PRINCIPAL
+        f"Rate limit excedido desde {ip_origen}", 
+        
         extra={
             "event.action": "rate-limit",
-            "source.ip": get_remote_address(),
+            "source.ip": ip_origen,  # Usamos la variable aquí también
             "http.request.method": request.method,
             "url.path": request.path,
             "error.message": e.description
