@@ -1,5 +1,3 @@
-import pytest
-from flask import session
 from src.models import UserKnownIP, db
 
 def test_mfa_flow_new_ip(client, employee_user):

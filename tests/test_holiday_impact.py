@@ -1,6 +1,6 @@
 """Tests for holiday impact on vacation day calculations."""
-from datetime import date, datetime
-from src.models import Festivo, SolicitudVacaciones, SaldoVacaciones
+from datetime import date
+from src.models import Festivo
 from src.utils import calcular_dias_habiles, invalidar_cache_festivos
 from src import db
 

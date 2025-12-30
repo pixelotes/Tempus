@@ -1,6 +1,3 @@
-import pytest
-from flask import session
-from src.models import UserKnownIP, db
 
 def test_mfa_enabled_by_default(client, employee_user):
     """

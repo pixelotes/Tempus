@@ -1,9 +1,6 @@
 """Tests for year closing (cerrar-anio) CLI command."""
-import pytest
 from datetime import date, datetime
-from click.testing import CliRunner
-from src.cli import cerrar_anio_command
-from src.models import Usuario, SaldoVacaciones, Festivo
+from src.models import SaldoVacaciones, Festivo
 from src import db
 
 

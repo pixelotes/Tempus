@@ -1,4 +1,3 @@
-import pytest
 from datetime import date, timedelta, datetime
 import uuid
 from src import db

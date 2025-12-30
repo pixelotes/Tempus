@@ -1,5 +1,5 @@
 """Tests for overlapping validation across fichajes, vacaciones, and bajas."""
-from datetime import date, time, datetime
+from datetime import date, time
 from src.models import SolicitudVacaciones, SolicitudBaja, Fichaje, TipoAusencia
 from src.utils import verificar_solapamiento, verificar_solapamiento_fichaje
 from src import db

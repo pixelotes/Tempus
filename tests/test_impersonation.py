@@ -1,5 +1,5 @@
 """Tests for admin impersonation (creating vacations/bajas on behalf of users)."""
-from datetime import date, datetime
+from datetime import datetime
 from src.models import SolicitudVacaciones, SaldoVacaciones
 from src import db
 

@@ -1,5 +1,5 @@
 """Tests for password management via admin panel."""
-from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.security import check_password_hash
 from src.models import Usuario
 from src import db
 

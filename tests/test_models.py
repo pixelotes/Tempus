@@ -1,4 +1,4 @@
-from src.models import Usuario, Fichaje
+from src.models import Fichaje
 from src import db
 from werkzeug.security import check_password_hash
 from datetime import date, time

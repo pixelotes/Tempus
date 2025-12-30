@@ -1,4 +1,3 @@
-import pytest
 from src.models import Usuario, db, UserKnownIP
 from werkzeug.security import check_password_hash
 

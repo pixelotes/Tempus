@@ -1,5 +1,5 @@
 import pytest
-from src.models import SaldoVacaciones, SolicitudVacaciones, Usuario
+from src.models import SaldoVacaciones, SolicitudVacaciones
 from src import db
 from sqlalchemy.exc import IntegrityError
 from datetime import date, datetime
