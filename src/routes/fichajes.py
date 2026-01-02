@@ -4,7 +4,7 @@ from datetime import datetime, date, timedelta
 from calendar import monthrange
 from sqlalchemy import func, desc, cast, Float
 from sqlalchemy.sql import extract
-from src.utils import es_festivo, verificar_solapamiento, verificar_solapamiento_fichaje
+from src.utils import es_festivo, verificar_solapamiento, verificar_solapamiento_fichaje, decimal_to_human
 import uuid
 
 from src import db
@@ -123,6 +123,11 @@ def listar():
 @fichajes_bp.route('/fichajes/crear', methods=['GET', 'POST'])
 @login_required
 def crear():
+    # SI EL MODO MANUAL ESTÁ DESACTIVADO, REDIRIGIR AL RELOJ
+    # (A menos que sea admin, quizás queramos dejarle una puerta trasera)
+    if not current_app.config.get('ENABLE_MANUAL_ENTRY') and current_user.rol != 'admin':
+        return redirect(url_for('fichajes.reloj'))
+    
     if request.method == 'POST':
         fecha = datetime.strptime(request.form.get('fecha'), '%Y-%m-%d').date()
         hora_entrada = datetime.strptime(request.form.get('hora_entrada'), '%H:%M').time()
@@ -447,3 +452,9 @@ def toggle_fichaje():
             'mensaje': f'Fichaje iniciado a las {hora_actual.strftime("%H:%M")}',
             'inicio': ahora_local.isoformat()
         })
+    
+@fichajes_bp.route('/fichajes/reloj')
+@login_required
+def reloj():
+    """Nueva pantalla de fichaje Start/Stop"""
+    return render_template('reloj.html')

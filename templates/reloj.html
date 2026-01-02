@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}Fichaje en Tiempo Real{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center text-center mt-5">
+    <div class="col-md-6">
+        <div class="card shadow-lg">
+            <div class="card-header bg-dark text-white">
+                <h4 class="mb-0"><i class="bi bi-stopwatch"></i> Control Horario</h4>
+            </div>
+            <div class="card-body p-5">
+                
+                <div class="mb-4">
+                    <h5 class="text-muted text-uppercase small ls-1">Estado Actual</h5>
+                    <h2 id="estadoTexto" class="fw-bold text-secondary">Cargando...</h2>
+                </div>
+
+                <div class="display-1 fw-bold font-monospace mb-5" id="cronometro">
+                    00:00:00
+                </div>
+
+                <button id="btnAccion" class="btn btn-lg w-100 py-3 fw-bold rounded-pill shadow-sm disabled" onclick="toggleFichaje()">
+                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    <span id="btnTexto">Conectando...</span>
+                </button>
+
+                <div id="infoInicio" class="mt-4 text-muted small" style="opacity: 0;">
+                    Iniciado a las <span id="horaInicio" class="fw-bold">--:--</span>
+                </div>
+
+            </div>
+        </div>
+        
+        {% if config.ENABLE_MANUAL_ENTRY %}
+        <div class="mt-4">
+            <a href="{{ url_for('fichajes.crear') }}" class="text-muted small text-decoration-none">
+                <i class="bi bi-pencil"></i> ¿Olvidaste fichar? Introducir manualmente
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let intervaloCronometro;
+    let fechaInicioGlobal = null;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        verificarEstado();
+    });
+
+    // 1. OBTENER ESTADO INICIAL
+    async function verificarEstado() {
+        try {
+            const response = await fetch("{{ url_for('fichajes.estado_fichaje') }}");
+            const data = await response.json();
+            actualizarInterfaz(data);
+        } catch (error) {
+            console.error('Error:', error);
+            mostrarError('Error de conexión');
+        }
+    }
+
+    // 2. ACCIÓN DEL BOTÓN (START/STOP)
+    async function toggleFichaje() {
+        const btn = document.getElementById('btnAccion');
+        const spinner = btn.querySelector('.spinner-border');
+        
+        // Bloquear botón durante la petición
+        btn.disabled = true;
+        spinner.classList.remove('d-none');
+
+        try {
+            const response = await fetch("{{ url_for('fichajes.toggle_fichaje') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': "{{ csrf_token() }}" // Importante para seguridad
+                }
+            });
+            
+            const data = await response.json();
+            
+            // Recargar estado completo para asegurar sincronización
+            await verificarEstado(); 
+            
+            // Mostrar feedback visual (opcional)
+            // alert(data.mensaje); 
+
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al procesar el fichaje.');
+        } finally {
+            btn.disabled = false;
+            spinner.classList.add('d-none');
+        }
+    }
+
+    // 3. ACTUALIZAR UI
+    function actualizarInterfaz(data) {
+        const estadoTexto = document.getElementById('estadoTexto');
+        const btn = document.getElementById('btnAccion');
+        const btnTexto = document.getElementById('btnTexto');
+        const infoInicio = document.getElementById('infoInicio');
+        const horaInicioSpan = document.getElementById('horaInicio');
+
+        // Limpiar intervalo previo si existe
+        if (intervaloCronometro) clearInterval(intervaloCronometro);
+
+        if (data.activo) {
+            // --- ESTADO: TRABAJANDO ---
+            estadoTexto.textContent = "TRABAJANDO";
+            estadoTexto.className = "fw-bold text-success";
+            
+            btn.className = "btn btn-lg w-100 py-3 fw-bold rounded-pill shadow-sm btn-danger";
+            btnTexto.textContent = "DETENER / PAUSAR";
+            
+            // Configurar cronómetro
+            fechaInicioGlobal = new Date(data.inicio); // UTC/ISO desde servidor
+            infoInicio.style.opacity = "1";
+            
+            // Formatear hora de inicio local para mostrar
+            const horaLocal = fechaInicioGlobal.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            horaInicioSpan.textContent = horaLocal;
+
+            // Iniciar contador
+            actualizarContador(); // Ejecutar ya
+            intervaloCronometro = setInterval(actualizarContador, 1000);
+
+        } else {
+            // --- ESTADO: DESCANSANDO / FUERA ---
+            estadoTexto.textContent = "NO ACTIVO";
+            estadoTexto.className = "fw-bold text-secondary";
+            
+            btn.className = "btn btn-lg w-100 py-3 fw-bold rounded-pill shadow-sm btn-success";
+            btnTexto.textContent = "INICIAR JORNADA";
+            
+            document.getElementById('cronometro').textContent = "00:00:00";
+            infoInicio.style.opacity = "0";
+        }
+        
+        btn.disabled = false;
+    }
+
+    // 4. LÓGICA DEL CRONÓMETRO (CONTADOR)
+    function actualizarContador() {
+        if (!fechaInicioGlobal) return;
+
+        const ahora = new Date();
+        // Diferencia en milisegundos
+        const diff = ahora - fechaInicioGlobal; 
+        
+        // Evitar negativos si el reloj del cliente va mal
+        const totalSegundos = Math.max(0, Math.floor(diff / 1000));
+
+        const horas = Math.floor(totalSegundos / 3600);
+        const minutos = Math.floor((totalSegundos % 3600) / 60);
+        const segundos = totalSegundos % 60;
+
+        const strHoras = String(horas).padStart(2, '0');
+        const strMinutos = String(minutos).padStart(2, '0');
+        const strSegundos = String(segundos).padStart(2, '0');
+
+        document.getElementById('cronometro').textContent = `${strHoras}:${strMinutos}:${strSegundos}`;
+    }
+
+    function mostrarError(msg) {
+        document.getElementById('estadoTexto').textContent = msg;
+        document.getElementById('estadoTexto').className = "fw-bold text-danger";
+    }
+</script>
+{% endblock %}
