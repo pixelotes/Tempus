@@ -9,15 +9,14 @@
         <button onclick="exportTableToCSV('mis_fichajes.csv', true)" class="btn btn-success">
             <i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV
         </button>
+        {% if config.ENABLE_MANUAL_ENTRY or current_user.rol == 'admin' %}
         <a href="{{ url_for('fichajes.crear') }}" class="btn btn-primary">
             <i class="bi bi-plus-circle"></i> Nuevo Fichaje
         </a>
+        {% endif %}
     </div>
 </div>
 
-<!-- ========================================
-     FILTROS DE MES/AÑO
-     ======================================== -->
 <div class="card mb-4">
     <div class="card-body">
         <form method="GET" class="row g-3 align-items-end">
@@ -40,7 +39,6 @@
                 </select>
             </div>
 
-            <!-- ✅ NUEVO: Indicador de página actual -->
             {% if pagination.pages > 1 %}
             <div class="col-auto ms-auto">
                 <span class="badge bg-secondary">
@@ -52,9 +50,6 @@
     </div>
 </div>
 
-<!-- ========================================
-     ESTADÍSTICAS DEL MES
-     ======================================== -->
 <div class="alert alert-info d-flex justify-content-between align-items-center">
     <span>
         <i class="bi bi-calendar-check"></i>
@@ -68,9 +63,6 @@
     </span>
 </div>
 
-<!-- ========================================
-     TABLA DE FICHAJES
-     ======================================== -->
 <div class="card">
     <div class="card-body">
         {% if fichajes %}
@@ -89,10 +81,21 @@
                 </thead>
                 <tbody>
                     {% for fichaje in fichajes %}
-                    <tr>
+                    <tr class="{% if not fichaje.hora_salida %}table-success bg-opacity-10{% endif %}">
                         <td>{{ fichaje.fecha.strftime('%d/%m/%Y') }}</td>
                         <td>{{ fichaje.hora_entrada.strftime('%H:%M') }}</td>
-                        <td>{{ fichaje.hora_salida.strftime('%H:%M') }}</td>
+
+                        <td>
+                            {% if fichaje.hora_salida %}
+                            {{ fichaje.hora_salida.strftime('%H:%M') }}
+                            {% else %}
+                            <span class="badge bg-success bg-opacity-75 text-white">
+                                <i class="bi bi-play-circle spinner-grow spinner-grow-sm"
+                                    style="width: 0.7rem; height: 0.7rem;"></i> En curso
+                            </span>
+                            {% endif %}
+                        </td>
+
                         <td>
                             {% if fichaje.pausa > 0 %}
                             <span class="text-muted">{{ fichaje.pausa }} min</span>
@@ -100,9 +103,15 @@
                             -
                             {% endif %}
                         </td>
+
                         <td>
+                            {% if fichaje.hora_salida %}
                             <strong>{{ fichaje.horas_trabajadas() | formato_hora }}h</strong>
+                            {% else %}
+                            <span class="text-muted small fst-italic">Calculando...</span>
+                            {% endif %}
                         </td>
+
                         <td>
                             {% if fichaje.version > 1 %}
                             {% set editor_nombre = fichaje.editor.nombre if fichaje.editor else 'Desconocido' %}
@@ -114,12 +123,19 @@
                             {% endif %}
                         </td>
                         <td>
+                            {% if fichaje.hora_salida %}
                             <a href="{{ url_for('fichajes.crear', 
                                     hora_entrada=fichaje.hora_entrada.strftime('%H:%M'),
                                     hora_salida=fichaje.hora_salida.strftime('%H:%M'),
                                     pausa=fichaje.pausa) }}" class="btn btn-sm btn-primary" title="Clonar">
                                 <i class="bi bi-files"></i>
                             </a>
+                            {% else %}
+                            <button class="btn btn-sm btn-secondary" disabled
+                                title="No se puede clonar un fichaje abierto">
+                                <i class="bi bi-files"></i>
+                            </button>
+                            {% endif %}
 
                             <a href="{{ url_for('fichajes.editar', id=fichaje.id) }}" class="btn btn-sm btn-warning">
                                 <i class="bi bi-pencil"></i>
@@ -140,13 +156,9 @@
             </table>
         </div>
 
-        <!-- ========================================
-             CONTROLES DE PAGINACIÓN
-             ======================================== -->
         {% if pagination.pages > 1 %}
         <nav aria-label="Paginación de fichajes" class="mt-4">
             <ul class="pagination justify-content-center">
-                <!-- Botón Primera Página -->
                 <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
                     <a class="page-link"
                         href="{{ url_for('fichajes.listar', page=1, mes=mes_actual, anio=anio_actual) }}"
@@ -154,8 +166,6 @@
                         <span aria-hidden="true">&laquo;&laquo;</span>
                     </a>
                 </li>
-
-                <!-- Botón Anterior -->
                 <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
                     <a class="page-link"
                         href="{{ url_for('fichajes.listar', page=pagination.prev_num, mes=mes_actual, anio=anio_actual) if pagination.has_prev else '#' }}"
@@ -164,7 +174,6 @@
                     </a>
                 </li>
 
-                <!-- Números de Página -->
                 {% for p in pagination.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
                 {% if p %}
                 <li class="page-item {% if p == pagination.page %}active{% endif %}">
@@ -180,7 +189,6 @@
                 {% endif %}
                 {% endfor %}
 
-                <!-- Botón Siguiente -->
                 <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
                     <a class="page-link"
                         href="{{ url_for('fichajes.listar', page=pagination.next_num, mes=mes_actual, anio=anio_actual) if pagination.has_next else '#' }}"
@@ -188,8 +196,6 @@
                         <span aria-hidden="true">&raquo;</span>
                     </a>
                 </li>
-
-                <!-- Botón Última Página -->
                 <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
                     <a class="page-link"
                         href="{{ url_for('fichajes.listar', page=pagination.pages, mes=mes_actual, anio=anio_actual) }}"
@@ -200,7 +206,6 @@
             </ul>
         </nav>
 
-        <!-- Info de paginación -->
         <div class="text-center text-muted small">
             Mostrando {{ pagination.per_page * (pagination.page - 1) + 1 }}
             -
