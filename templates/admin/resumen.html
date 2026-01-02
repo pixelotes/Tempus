@@ -31,7 +31,7 @@
             <div class="col-md-3">
                 <label class="form-label fw-bold">Año</label>
                 <select name="anio" class="form-select" onchange="this.form.submit()">
-                    {% for a in range(2023, 2026) %}
+                    {% for a in anios_disponibles %}
                     <option value="{{ a }}" {% if a==anio_actual %}selected{% endif %}>{{ a }}</option>
                     {% endfor %}
                 </select>
