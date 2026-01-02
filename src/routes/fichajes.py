@@ -123,9 +123,9 @@ def listar():
 @fichajes_bp.route('/fichajes/crear', methods=['GET', 'POST'])
 @login_required
 def crear():
-    # SI EL MODO MANUAL ESTÁ DESACTIVADO, REDIRIGIR AL RELOJ
-    # (A menos que sea admin, quizás queramos dejarle una puerta trasera)
-    if not current_app.config.get('ENABLE_MANUAL_ENTRY') and current_user.rol != 'admin':
+    # CAMBIO: Redirección estricta para TODOS (incluido admin) si el manual está off.
+    # El admin debe usar el reloj si quiere fichar (o reactivar el modo manual por config).
+    if not current_app.config.get('ENABLE_MANUAL_ENTRY'):
         return redirect(url_for('fichajes.reloj'))
     
     if request.method == 'POST':
