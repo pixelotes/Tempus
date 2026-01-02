@@ -344,6 +344,11 @@ def admin_resumen():
     page = request.args.get('page', 1, type=int)
     per_page = 10 
     
+    # Generar lista de años dinámicamente (año actual + 4 anteriores)
+    anio_actual_servidor = datetime.now().year
+    anios_disponibles = list(range(anio_actual_servidor - 4, anio_actual_servidor + 1))
+    anios_disponibles.reverse()  # Mostrar del más reciente al más antiguo
+    
     fecha_inicio_anio = date(anio, 1, 1)
     fecha_fin_anio = date(anio, 12, 31)
 
@@ -389,6 +394,7 @@ def admin_resumen():
                              pagination=pagination,
                              usuario_seleccionado=None,
                              anio_actual=anio,
+                             anios_disponibles=anios_disponibles,
                              total_dias_disfrutados=0,
                              total_dias_restantes=0)
 
@@ -454,6 +460,7 @@ def admin_resumen():
                          pagination=pagination,
                          usuario_seleccionado=usuario_obj,
                          anio_actual=anio,
+                         anios_disponibles=anios_disponibles,
                          total_dias_asignados=int(total_asignados_val),
                          total_dias_disfrutados=total_dias_disfrutados,
                          total_dias_restantes=total_dias_restantes)
@@ -634,6 +641,61 @@ def admin_ausencias_export():
         headers={'Content-Disposition': 'attachment;filename=listado_ausencias.csv'}
     )
 
+def _generar_detalle_cambios_fichaje(fichaje_actual):
+    """
+    Genera un detalle de los cambios realizados en un fichaje comparando
+    con la versión anterior. Retorna solo los campos que cambiaron.
+    
+    Args:
+        fichaje_actual: El fichaje actual (versión modificada)
+        
+    Returns:
+        str: Detalle de cambios en formato "campo: antiguo → nuevo"
+    """
+    # Si es versión 1 o eliminación, mostrar info básica
+    if fichaje_actual.version == 1:
+        return f"{fichaje_actual.fecha.strftime('%d/%m/%Y')} ({fichaje_actual.hora_entrada.strftime('%H:%M')} - {fichaje_actual.hora_salida.strftime('%H:%M')})"
+    
+    if fichaje_actual.tipo_accion == 'eliminacion':
+        return f"{fichaje_actual.fecha.strftime('%d/%m/%Y')} ({fichaje_actual.hora_entrada.strftime('%H:%M')} - {fichaje_actual.hora_salida.strftime('%H:%M')})"
+    
+    # Buscar la versión anterior
+    version_anterior = Fichaje.query.filter(
+        Fichaje.grupo_id == fichaje_actual.grupo_id,
+        Fichaje.version == fichaje_actual.version - 1
+    ).first()
+    
+    if not version_anterior:
+        # Si no hay versión anterior, mostrar info básica
+        return f"{fichaje_actual.fecha.strftime('%d/%m/%Y')} ({fichaje_actual.hora_entrada.strftime('%H:%M')} - {fichaje_actual.hora_salida.strftime('%H:%M')})"
+    
+    # Comparar campos y generar lista de cambios
+    cambios = []
+    
+    # Comparar fecha
+    if fichaje_actual.fecha != version_anterior.fecha:
+        cambios.append(f"Fecha: {version_anterior.fecha.strftime('%d/%m/%Y')} → {fichaje_actual.fecha.strftime('%d/%m/%Y')}")
+    
+    # Comparar hora de entrada
+    if fichaje_actual.hora_entrada != version_anterior.hora_entrada:
+        cambios.append(f"Entrada: {version_anterior.hora_entrada.strftime('%H:%M')} → {fichaje_actual.hora_entrada.strftime('%H:%M')}")
+    
+    # Comparar hora de salida
+    if fichaje_actual.hora_salida != version_anterior.hora_salida:
+        cambios.append(f"Salida: {version_anterior.hora_salida.strftime('%H:%M')} → {fichaje_actual.hora_salida.strftime('%H:%M')}")
+    
+    # Comparar pausa
+    if fichaje_actual.pausa != version_anterior.pausa:
+        cambios.append(f"Pausa: {version_anterior.pausa}min → {fichaje_actual.pausa}min")
+    
+    # Si no hay cambios detectados (raro), mostrar info básica
+    if not cambios:
+        return f"{fichaje_actual.fecha.strftime('%d/%m/%Y')} (sin cambios detectados)"
+    
+    # Unir cambios con saltos de línea
+    return "\n".join(cambios)
+
+
 # --- AUDITORÍA UNIFICADA (Fichajes + Ausencias + Impersonation) ---
 @admin_bp.route('/admin/auditoria')
 @admin_required
@@ -673,7 +735,7 @@ def admin_auditoria():
             'empleado': f.usuario.nombre,
             'editor': f.editor.nombre if f.editor else 'Sistema',
             'objeto': 'Fichaje',
-            'detalle': f"{f.fecha.strftime('%d/%m/%Y')} ({f.hora_entrada.strftime('%H:%M')} - {f.hora_salida.strftime('%H:%M')})",
+            'detalle': _generar_detalle_cambios_fichaje(f),
             'motivo': f.motivo_rectificacion or '-'
         })
 
@@ -747,6 +809,11 @@ def admin_fichajes():
     except ValueError:
         mes = hoy.month
         anio = hoy.year
+    
+    # Generar lista de años dinámicamente (año actual + 4 anteriores)
+    anio_actual_servidor = datetime.now().year
+    anios_disponibles = list(range(anio_actual_servidor - 4, anio_actual_servidor + 1))
+    anios_disponibles.reverse()  # Mostrar del más reciente al más antiguo
         
     # 2. Calcular rango de fechas
     _, ultimo_dia = monthrange(anio, mes)
@@ -813,6 +880,7 @@ def admin_fichajes():
                            usuario_seleccionado=usuario_obj, # Pasamos objeto completo
                            mes_actual=mes,
                            anio_actual=anio,
+                           anios_disponibles=anios_disponibles,
                            total_horas=total_horas)
 
 @admin_bp.route('/admin/gestion-ausencias')
