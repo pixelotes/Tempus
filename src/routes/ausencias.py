@@ -503,10 +503,18 @@ def responder_solicitud(id, accion):
             # 1. Actualizar Saldo
             anio = solicitud.fecha_inicio.year
             saldo = SaldoVacaciones.query.filter_by(usuario_id=solicitud.usuario_id, anio=anio).first()
-            if saldo:
-                saldo.dias_disfrutados += solicitud.dias_solicitados
-                # Seguridad básica: permitir negativo con warning en log, o bloquear. 
-                # El usuario ya fue avisado al pedir. Aquí ejecutamos.
+            
+            # Create SaldoVacaciones if it doesn't exist for this user/year
+            if not saldo:
+                saldo = SaldoVacaciones(
+                    usuario_id=solicitud.usuario_id,
+                    anio=anio,
+                    dias_totales=solicitud.usuario.dias_vacaciones,
+                    dias_disfrutados=0
+                )
+                db.session.add(saldo)
+            
+            saldo.dias_disfrutados += solicitud.dias_solicitados
             
             solicitud.estado = 'aprobada'
             
@@ -557,8 +565,17 @@ def responder_solicitud(id, accion):
             anio = solicitud.fecha_inicio.year
             saldo = SaldoVacaciones.query.filter_by(usuario_id=solicitud.usuario_id, anio=anio).first()
             
-            if saldo:
-                saldo.dias_disfrutados = saldo.dias_disfrutados - dias_reintegro + coste_nuevo
+            # Create SaldoVacaciones if it doesn't exist for this user/year
+            if not saldo:
+                saldo = SaldoVacaciones(
+                    usuario_id=solicitud.usuario_id,
+                    anio=anio,
+                    dias_totales=solicitud.usuario.dias_vacaciones,
+                    dias_disfrutados=0
+                )
+                db.session.add(saldo)
+            
+            saldo.dias_disfrutados = saldo.dias_disfrutados - dias_reintegro + coste_nuevo
                 
             flash(f"Solicitud aprobada. Saldo ajustado (Devueltos: {dias_reintegro}, Nuevos: {coste_nuevo}).", 'success')
 

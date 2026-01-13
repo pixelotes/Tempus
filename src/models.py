@@ -78,7 +78,8 @@ class Usuario(UserMixin, db.Model):
         
         if saldo:
             return saldo.dias_totales - saldo.dias_disfrutados
-        return 0
+        # Fallback: If no saldo record exists, return full allocation
+        return self.dias_vacaciones
 
     # Relación con saldos de vacaciones
     saldos_vacaciones = db.relationship('SaldoVacaciones', backref='usuario', lazy=True)
