@@ -114,7 +114,7 @@ app.register_blueprint(google_bp, url_prefix="/login")
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
-    default_limits=["5 per second", "30 per minute", "3000 per day"],
+    default_limits=["5 per second", "30 per minute", "5000 per day"],
     storage_uri="memory://"
 )
 
