@@ -288,7 +288,10 @@
 
                 fetch(form.action, {
                     method: form.method || 'POST',
-                    body: formData
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': formData.get('csrf_token')
+                    }
                 })
                     .then(response => {
                         if (response.ok) {
