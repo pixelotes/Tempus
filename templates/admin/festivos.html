@@ -105,10 +105,11 @@
                             </form>
 
                             <form method="POST" action="{{ url_for('admin.admin_eliminar_festivo', id=festivo.id) }}"
-                                style="display:inline;">
+                                style="display:inline;" class="delete-festivo-form">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-danger"
-                                    onclick="return confirm('¿Eliminar permanentemente?')">
+                                <button type="button" class="btn btn-sm btn-danger delete-festivo-btn"
+                                    data-festivo-desc="{{ festivo.descripcion }}"
+                                    data-festivo-fecha="{{ festivo.fecha.strftime('%d/%m/%Y') }}">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>
@@ -136,6 +137,26 @@
         dateFormat: "Y-m-d",
         allowInput: true,
         monthSelectorType: "static"
+    });
+
+    // Modal de confirmación para eliminar festivo
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.delete-festivo-btn').forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                const form = this.closest('form');
+                const desc = this.dataset.festivoDesc;
+                const fecha = this.dataset.festivoFecha;
+
+                showConfirmModal(
+                    'Eliminar Festivo',
+                    `¿Estás seguro de que deseas eliminar permanentemente el festivo "${desc}" (${fecha})?`,
+                    () => submitFormWithConfirm(form),
+                    'danger',
+                    'Eliminar'
+                );
+            });
+        });
     });
 </script>
 {% endblock %}

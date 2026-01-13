@@ -54,16 +54,23 @@
                         <td>
                             <div class="btn-group">
                                 <form method="POST"
-                                    action="{{ url_for('ausencias.responder_solicitud', id=sol.id, accion='aprobar') }}">
+                                    action="{{ url_for('ausencias.responder_solicitud', id=sol.id, accion='aprobar') }}"
+                                    class="approve-request-form">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button class="btn btn-sm btn-success me-1" title="Aprobar"><i
+                                    <button type="button" class="btn btn-sm btn-success me-1 approve-request-btn"
+                                        data-tipo="vacaciones" data-usuario="{{ sol.usuario.nombre }}"
+                                        data-fechas="{{ sol.fecha_inicio.strftime('%d/%m') }} - {{ sol.fecha_fin.strftime('%d/%m') }}"
+                                        data-dias="{{ sol.dias_solicitados }}" title="Aprobar"><i
                                             class="bi bi-check-lg"></i></button>
                                 </form>
                                 <form method="POST"
-                                    action="{{ url_for('ausencias.responder_solicitud', id=sol.id, accion='rechazar') }}">
+                                    action="{{ url_for('ausencias.responder_solicitud', id=sol.id, accion='rechazar') }}"
+                                    class="reject-request-form">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button class="btn btn-sm btn-danger" title="Rechazar"><i
-                                            class="bi bi-x-lg"></i></button>
+                                    <button type="button" class="btn btn-sm btn-danger reject-request-btn"
+                                        data-tipo="vacaciones" data-usuario="{{ sol.usuario.nombre }}"
+                                        data-fechas="{{ sol.fecha_inicio.strftime('%d/%m') }} - {{ sol.fecha_fin.strftime('%d/%m') }}"
+                                        title="Rechazar"><i class="bi bi-x-lg"></i></button>
                                 </form>
                             </div>
                         </td>
@@ -118,16 +125,23 @@
                         <td>
                             <div class="btn-group">
                                 <form method="POST"
-                                    action="{{ url_for('ausencias.responder_baja', id=sol.id, accion='aprobar') }}">
+                                    action="{{ url_for('ausencias.responder_baja', id=sol.id, accion='aprobar') }}"
+                                    class="approve-request-form">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button class="btn btn-sm btn-success me-1" title="Aprobar"><i
+                                    <button type="button" class="btn btn-sm btn-success me-1 approve-request-btn"
+                                        data-tipo="baja" data-usuario="{{ sol.usuario.nombre }}"
+                                        data-fechas="{{ sol.fecha_inicio.strftime('%d/%m') }} - {{ sol.fecha_fin.strftime('%d/%m') }}"
+                                        data-dias="{{ sol.dias_solicitados }}" title="Aprobar"><i
                                             class="bi bi-check-lg"></i></button>
                                 </form>
                                 <form method="POST"
-                                    action="{{ url_for('ausencias.responder_baja', id=sol.id, accion='rechazar') }}">
+                                    action="{{ url_for('ausencias.responder_baja', id=sol.id, accion='rechazar') }}"
+                                    class="reject-request-form">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button class="btn btn-sm btn-danger" title="Rechazar"><i
-                                            class="bi bi-x-lg"></i></button>
+                                    <button type="button" class="btn btn-sm btn-danger reject-request-btn"
+                                        data-tipo="baja" data-usuario="{{ sol.usuario.nombre }}"
+                                        data-fechas="{{ sol.fecha_inicio.strftime('%d/%m') }} - {{ sol.fecha_fin.strftime('%d/%m') }}"
+                                        title="Rechazar"><i class="bi bi-x-lg"></i></button>
                                 </form>
                             </div>
                         </td>
@@ -141,4 +155,7 @@
         {% endif %}
     </div>
 </div>
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/modal_confirmations.js') }}"></script>
 {% endblock %}
