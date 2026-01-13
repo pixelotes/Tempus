@@ -2,7 +2,7 @@
 
 Aplicación completa desarrollada con Flask para gestionar fichajes de empleados, solicitudes de vacaciones y solicitudes de bajas médicas.
 
-Versión actual: v0.4.2
+Versión actual: v0.5.0
 
 ## Características
 
