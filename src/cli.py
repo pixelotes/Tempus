@@ -52,7 +52,7 @@ def cerrar_anio_command(anio_origen, max_carryover, gestionar_festivos, anios_an
     # 2. RESUMEN DE OPERACIONES
     # ========================================
     
-    usuarios = Usuario.query.all()
+    usuarios = Usuario.query.filter(Usuario.activo == True).all()
     
     # Calcular festivos afectados
     # FIX: Archive festivos before the NEW year (includes the closing year)

@@ -36,30 +36,30 @@ class Usuario(UserMixin, db.Model):
     rol = db.Column(db.String(20), nullable=False)
     dias_vacaciones = db.Column(db.Integer, default=25)
     fecha_alta = db.Column(db.DateTime, default=datetime.utcnow)
+    activo = db.Column(db.Boolean, default=True, nullable=False)  # Soft delete
     
-    # Relación con fichajes
+    # Relación con fichajes (sin cascade para preservar histórico)
     fichajes = db.relationship(
         'Fichaje', 
         foreign_keys='Fichaje.usuario_id', 
         backref='usuario', 
-        lazy=True, 
-        cascade='all, delete-orphan'
+        lazy=True
     )
     
+    # Relación con vacaciones (sin cascade para preservar histórico)
     solicitudes_vacaciones = db.relationship(
         'SolicitudVacaciones', 
         foreign_keys='SolicitudVacaciones.usuario_id',
         backref='usuario', 
-        lazy=True, 
-        cascade='all, delete-orphan'
+        lazy=True
     )
 
+    # Relación con bajas (sin cascade para preservar histórico)
     solicitudes_bajas = db.relationship(
         'SolicitudBaja',
         foreign_keys='SolicitudBaja.usuario_id',
         back_populates='usuario',
-        lazy=True,
-        cascade='all, delete-orphan'
+        lazy=True
     )
     
     aprobadores = db.relationship('Aprobador', foreign_keys='Aprobador.usuario_id', 

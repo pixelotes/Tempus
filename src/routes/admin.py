@@ -13,10 +13,9 @@ from . import admin_bp
 @admin_bp.route('/admin/usuarios')
 @admin_required
 def admin_usuarios():
-    # MODIFICADO: No cargamos todos los usuarios de golpe para la vista inicial
-    # Se obtendrán por AJAX o paginación si fuera necesario
+    # MODIFICADO: Solo mostrar usuarios activos (soft delete)
     page = request.args.get('page', 1, type=int)
-    usuarios = Usuario.query.paginate(page=page, per_page=20)
+    usuarios = Usuario.query.filter_by(activo=True).paginate(page=page, per_page=20)
     return render_template('admin/usuarios.html', usuarios=usuarios)
 
 @admin_bp.route('/admin/api/usuarios/buscar')
@@ -30,8 +29,9 @@ def admin_buscar_usuarios():
     if not query or len(query) < 2:
         return {'results': []}
     
-    # Búsqueda insensible a mayúsculas
+    # Búsqueda insensible a mayúsculas (solo usuarios activos)
     usuarios = Usuario.query.filter(
+        Usuario.activo == True,
         or_(
             Usuario.nombre.ilike(f'%{query}%'),
             Usuario.email.ilike(f'%{query}%')
@@ -158,14 +158,26 @@ def admin_editar_usuario(id):
 @admin_required
 def admin_eliminar_usuario(id):
     usuario = Usuario.query.get_or_404(id)
-    db.session.delete(usuario)
+    
+    # Guardar datos antes del archivado para logging
+    target_id = usuario.id
+    target_email = usuario.email
+    target_role = usuario.rol
+    
+    # Eliminar relaciones de aprobación (el usuario deja de ser aprobador y pierde sus aprobadores)
+    Aprobador.query.filter(
+        (Aprobador.usuario_id == id) | (Aprobador.aprobador_id == id)
+    ).delete(synchronize_session='fetch')
+    
+    # Archivar usuario (soft delete)
+    usuario.activo = False
     db.session.commit()
 
     # --- LOGGING INICIO ---
     current_app.logger.info(
-        f"Usuario eliminado: {target_email}",
+        f"Usuario archivado: {target_email}",
         extra={
-            "event.action": "user-deletion",
+            "event.action": "user-archive",
             "event.category": ["iam", "configuration"],
             "event.outcome": "success",
             "user.target.id": target_id,
@@ -178,7 +190,7 @@ def admin_eliminar_usuario(id):
     )
     # --- LOGGING FIN ---
     
-    flash('Usuario eliminado correctamente', 'success')
+    flash('Usuario archivado correctamente', 'success')
     return redirect(url_for('admin.admin_usuarios'))
 
 # --- APROBADORES ---
