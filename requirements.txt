@@ -4,6 +4,8 @@ flask-login
 flask-mail
 flask-limiter
 flask-wtf
+flask-migrate
+flask-apscheduler
 rich
 gunicorn
 google-api-python-client

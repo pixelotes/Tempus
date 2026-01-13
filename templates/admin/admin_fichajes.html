@@ -82,16 +82,32 @@
                 </thead>
                 <tbody>
                     {% for f in fichajes %}
-                    <tr>
+                    <tr class="{% if not f.hora_salida %}table-success bg-opacity-25{% endif %}">
                         <td>
                             <div class="fw-bold">{{ f.usuario.nombre }}</div>
                             <small class="text-muted">{{ f.usuario.email }}</small>
                         </td>
                         <td>{{ f.fecha.strftime('%d/%m/%Y') }}</td>
                         <td>{{ f.hora_entrada.strftime('%H:%M') }}</td>
-                        <td>{{ f.hora_salida.strftime('%H:%M') }}</td>
+
+                        <td>
+                            {% if f.hora_salida %}
+                            {{ f.hora_salida.strftime('%H:%M') }}
+                            {% else %}
+                            <span class="badge bg-success">En curso</span>
+                            {% endif %}
+                        </td>
+
                         <td>{{ f.pausa }}m</td>
-                        <td class="fw-bold text-primary">{{ f.horas_trabajadas() | formato_hora }}h</td>
+
+                        <td class="fw-bold text-primary">
+                            {% if f.hora_salida %}
+                            {{ f.horas_trabajadas() | formato_hora }}h
+                            {% else %}
+                            <span class="text-muted small">-</span>
+                            {% endif %}
+                        </td>
+
                         <td>
                             {% if f.version > 1 %}
                             <span class="badge bg-warning text-dark" title="Rectificado">v{{ f.version }}</span>
@@ -127,7 +143,6 @@
             </table>
         </div>
 
-        <!-- ✅ AÑADIR PAGINACIÓN -->
         {% if pagination and pagination.pages > 1 %}
         <nav aria-label="Paginación" class="mt-4">
             <ul class="pagination justify-content-center">
