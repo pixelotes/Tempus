@@ -17,17 +17,21 @@ def get_user_now():
     """
     Devuelve la fecha y hora actual ajustada a la zona horaria del negocio.
     Por defecto intenta simular Europe/Madrid si el servidor está en UTC.
+    
+    IMPORTANTE: Esta función actualmente NO calcula DST (horario de verano).
+    Siempre aplica UTC+1. Para soporte completo de DST, instalar 'pytz'.
     """
     now = datetime.utcnow()
     # Ajuste manual simple para Madrid (UTC+1 en invierno, UTC+2 en verano)
     # Una solución más robusta requeriría instalar 'pytz' y configurar la zona en el Usuario.
-    # Aquí aplicamos UTC+1 por defecto como base segura para España Peninsular invierno.
     # TODO: En el futuro, instalar 'pytz' y usar: datetime.now(pytz.timezone('Europe/Madrid'))
     
-    # Verificamos si estamos en horario de verano (aprox: último domingo marzo a último octubre)
-    # Esta es una aproximación básica. Lo ideal es añadir 'pytz' al requirements.txt.
-    is_dst = False # Simplificación
-    offset = 2 if is_dst else 1 
+    # NOTA: DST NO IMPLEMENTADO - Siempre usa UTC+1
+    # Para implementar DST correctamente, necesitarías:
+    # 1. Añadir 'pytz' a requirements.txt
+    # 2. Usar: datetime.now(pytz.timezone('Europe/Madrid'))
+    is_dst = False  # Hardcoded - DST not calculated
+    offset = 1  # Always UTC+1 (winter time for Spain)
     
     # Si el servidor ya está en hora local (no UTC), no ajustar.
     # Para Docker/Nube suele ser UTC.

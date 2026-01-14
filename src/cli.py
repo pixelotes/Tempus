@@ -334,6 +334,22 @@ def init_admin_command():
         dias_vacaciones=25
     )
     db.session.add(admin)
+    db.session.flush()  # ✅ Genera el admin.id sin hacer commit
+    
+    # ✅ NUEVO: Crear saldo automáticamente para el año actual
+    from datetime import datetime
+    from src.models import SaldoVacaciones
+    
+    anio_actual = datetime.now().year
+    saldo = SaldoVacaciones(
+        usuario_id=admin.id,
+        anio=anio_actual,
+        dias_totales=25,
+        dias_disfrutados=0,
+        dias_carryover=0
+    )
+    db.session.add(saldo)
+    
     db.session.commit()
     print(f"✅ Usuario Administrador creado: {email}")
     

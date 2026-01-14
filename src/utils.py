@@ -157,60 +157,33 @@ def verificar_solapamiento(usuario_id, fecha_inicio, fecha_fin, excluir_solicitu
     que se solape con el rango dado.
     
     Args:
-        cached_vacaciones (mid): Lista opcional de objetos SolicitudVacaciones para evitar query
+        cached_vacaciones (list): DEPRECATED - No longer used, always queries DB for proper exclusion
         cached_bajas (list): Lista opcional de objetos SolicitudBaja para evitar query
     
     Lógica de solapamiento: (InicioA <= FinB) y (FinA >= InicioB)
     """
     
     # 1. Comprobar Vacaciones existentes (Pendientes o Aprobadas)
-    if cached_vacaciones is not None:
-        # Filtrado en memoria (Optimización)
-        # Criterio: usuario_id, es_actual, no cancel/elim, pendiente/aprobada, solape fechas
-        conflicto = False
-        for vac in cached_vacaciones:
-            if (vac.usuario_id == usuario_id and
-                vac.es_actual and
-                vac.tipo_accion not in ['cancelacion', 'eliminacion'] and
-                vac.estado in ['pendiente', 'aprobada']):
-                
-                if tipo == 'vacaciones' and excluir_solicitud_id:
-                     # Nota: cached objects might not have group_id loaded if lightweight, but assuming model instances
-                     if vac.grupo_id and excluir_solicitud_id: # Comparison logic depends on exclude
-                         # To be safe, if exclude is needed, better rely on DB or robust checks.
-                         # Assuming 'excluir_solicitud_id' implies we have access to the object to compare group_id
-                         # Here we simplify: if passed cached, we assume it's a list of relevant active vacs
-                         pass 
-                     
-                # Check Overlap
-                if vac.fecha_inicio <= fecha_fin and vac.fecha_fin >= fecha_inicio:
-                     # Check exclusion
-                     if tipo == 'vacaciones' and excluir_solicitud_id:
-                         # Si es la misma solicitud (mismo grupo), no cuenta
-                         # Necesitamos saber el grupoid de la excluida. 
-                         # Si no es trivial, saltamos esta comprobación compleja en memoria o asumimos riesgo.
-                         # Por seguridad, si hay cached, asumimos que caller maneja exclusiones o son listas limpias.
-                         return True, "Ya tienes vacaciones solicitadas en estas fechas (Cached)."
-                     return True, "Ya tienes vacaciones solicitadas en estas fechas."
-    else:
-        query_vac = SolicitudVacaciones.query.filter(
-            SolicitudVacaciones.usuario_id == usuario_id,
-            SolicitudVacaciones.es_actual == True,
-            # AÑADIDO: Ignorar cancelaciones (aunque estén aprobadas) y eliminaciones
-            SolicitudVacaciones.tipo_accion.notin_(['cancelacion', 'eliminacion']), 
-            SolicitudVacaciones.estado.in_(['pendiente', 'aprobada']),
-            SolicitudVacaciones.fecha_inicio <= fecha_fin,
-            SolicitudVacaciones.fecha_fin >= fecha_inicio
-        )
+    # Note: Removed cached_vacaciones path due to incomplete exclusion logic (Bug #3)
+    # Always use DB query which has proper grupo_id exclusion handling
+    query_vac = SolicitudVacaciones.query.filter(
+        SolicitudVacaciones.usuario_id == usuario_id,
+        SolicitudVacaciones.es_actual == True,
+        # AÑADIDO: Ignorar cancelaciones (aunque estén aprobadas) y eliminaciones
+        SolicitudVacaciones.tipo_accion.notin_(['cancelacion', 'eliminacion']), 
+        SolicitudVacaciones.estado.in_(['pendiente', 'aprobada']),
+        SolicitudVacaciones.fecha_inicio <= fecha_fin,
+        SolicitudVacaciones.fecha_fin >= fecha_inicio
+    )
+    
+    # Si estamos editando, excluimos la propia solicitud para que no choque consigo misma
+    if tipo == 'vacaciones' and excluir_solicitud_id:
+        sol_orig = SolicitudVacaciones.query.get(excluir_solicitud_id)
+        if sol_orig:
+            query_vac = query_vac.filter(SolicitudVacaciones.grupo_id != sol_orig.grupo_id)
         
-        # Si estamos editando, excluimos la propia solicitud para que no choque consigo misma
-        if tipo == 'vacaciones' and excluir_solicitud_id:
-            sol_orig = SolicitudVacaciones.query.get(excluir_solicitud_id)
-            if sol_orig:
-                query_vac = query_vac.filter(SolicitudVacaciones.grupo_id != sol_orig.grupo_id)
-            
-        if query_vac.count() > 0:
-            return True, "Ya tienes vacaciones solicitadas en estas fechas."
+    if query_vac.count() > 0:
+        return True, "Ya tienes vacaciones solicitadas en estas fechas."
 
     # 2. Comprobar Bajas existentes (Pendientes o Aprobadas)
     if cached_bajas is not None:

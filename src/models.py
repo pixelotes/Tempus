@@ -29,6 +29,12 @@ class TipoAusencia(db.Model):
 class Usuario(UserMixin, db.Model):
     __tablename__ = 'usuarios'
     
+    # Indexes for performance
+    __table_args__ = (
+        db.Index('idx_usuario_activo', 'activo'),  # For filtering active users
+        db.Index('idx_usuario_email', 'email'),     # For login queries (though unique already helps)
+    )
+    
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
@@ -88,10 +94,6 @@ class Usuario(UserMixin, db.Model):
 class SaldoVacaciones(db.Model):
     __tablename__ = 'saldos_vacaciones'
 
-    __table_args__ = (
-        UniqueConstraint('usuario_id', 'anio', name='unique_usuario_anio'),
-    )
-
     id = db.Column(db.Integer, primary_key=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
     anio = db.Column(db.Integer, nullable=False)
@@ -101,6 +103,8 @@ class SaldoVacaciones(db.Model):
 
     __table_args__ = (
         UniqueConstraint('usuario_id', 'anio', name='unique_usuario_anio'),
+        db.Index('idx_saldo_anio', 'anio'),  # For year-based vacation queries
+        db.Index('idx_saldo_usuario_anio', 'usuario_id', 'anio'),  # Composite for common lookups
     )
 
     def __repr__(self):
@@ -305,10 +309,14 @@ class Aprobador(db.Model):
 class Festivo(db.Model):
     __tablename__ = 'festivos'
     
+    __table_args__ = (
+        db.Index('idx_festivo_activo_fecha', 'activo', 'fecha'),  # For active holiday lookups
+    )
+    
     id = db.Column(db.Integer, primary_key=True)
     fecha = db.Column(db.Date, nullable=False, unique=True)
     descripcion = db.Column(db.String(200), nullable=False)
-    activo = db.Column(db.Boolean, default=True, nullable=False)  # ✅ AÑADIR
+    activo = db.Column(db.Boolean, default=True, nullable=False)
     
     def __repr__(self):
         return f'<Festivo {self.fecha} - {self.descripcion}>'

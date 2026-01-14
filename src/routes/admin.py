@@ -118,10 +118,6 @@ def admin_editar_usuario(id):
         usuario.dias_vacaciones = int(request.form.get('dias_vacaciones', 25))
         
         password = request.form.get('password')
-        if password:
-            usuario.password = generate_password_hash(password)
-
-        password = request.form.get('password')
         password_changed = False
         
         if password:
@@ -202,7 +198,8 @@ def admin_aprobadores():
         db.joinedload(Aprobador.usuario),
         db.joinedload(Aprobador.aprobador)
     ).all()
-    usuarios = Usuario.query.all()
+    # Only show active users in dropdown
+    usuarios = Usuario.query.filter_by(activo=True).order_by(Usuario.nombre).all()
     return render_template('admin/aprobadores.html', aprobadores=aprobadores, usuarios=usuarios)
 
 @admin_bp.route('/admin/aprobadores/asignar', methods=['POST'])
@@ -664,14 +661,21 @@ def admin_fichajes_export():
     writer.writerow(['Fecha', 'Usuario', 'Email', 'Entrada', 'Salida', 'Pausa (min)', 'Horas'])
     
     for f in fichajes:
-        horas = ((f.hora_salida.hour * 60 + f.hora_salida.minute) - 
-                 (f.hora_entrada.hour * 60 + f.hora_entrada.minute)) / 60 - (f.pausa / 60)
+        # Skip open fichajes (without hora_salida) to prevent errors
+        if f.hora_salida:
+            horas = ((f.hora_salida.hour * 60 + f.hora_salida.minute) - 
+                     (f.hora_entrada.hour * 60 + f.hora_entrada.minute)) / 60 - (f.pausa / 60)
+            salida_str = f.hora_salida.strftime('%H:%M')
+        else:
+            horas = 0.0
+            salida_str = 'Abierto'
+            
         writer.writerow([
             f.fecha.strftime('%d/%m/%Y'),
             f.usuario.nombre,
             f.usuario.email,
             f.hora_entrada.strftime('%H:%M'),
-            f.hora_salida.strftime('%H:%M'),
+            salida_str,
             f.pausa,
             f'{horas:.2f}'
         ])

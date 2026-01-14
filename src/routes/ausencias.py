@@ -271,6 +271,9 @@ def modificar_vacaciones(id):
             flash(f"Atención: Estás solicitando vacaciones por adelantado ({resultado['saldo_proyectado']} días).", 'warning')
 
         # CREAR NUEVA VERSIÓN (Tarea 5)
+        # Calculate new total days based on the new date range
+        dias_nuevos_totales = calcular_dias_habiles(nueva_fecha_inicio, nueva_fecha_fin)
+        
         nueva_version = SolicitudVacaciones(
             usuario_id=current_user.id,
             grupo_id=original.grupo_id,
@@ -279,16 +282,12 @@ def modificar_vacaciones(id):
             tipo_accion='modificacion',
             fecha_inicio=nueva_fecha_inicio,
             fecha_fin=nueva_fecha_fin,
-            dias_solicitados=resultado['dias_diff'] + original.dias_solicitados, 
+            dias_solicitados=dias_nuevos_totales,
             motivo=motivo,
             estado='pendiente',
             editor_id=current_user.id,
             fecha_solicitud=datetime.utcnow()
         )
-        
-        # Recalculamos dias_solicitados del total nuevo de forma segura
-        nueva_version.dias_solicitados = resultado['dias_diff'] + original.dias_solicitados
-        # Si la simulación devuelve dias_diff, entonces Total Nuevo = Original + Diff
 
         db.session.add(nueva_version)
         db.session.commit()
