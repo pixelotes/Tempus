@@ -6,6 +6,7 @@ import uuid
 from src import db
 from src.models import SolicitudVacaciones, SolicitudBaja, TipoAusencia, Usuario, SaldoVacaciones
 from src.utils import calcular_dias_habiles, verificar_solapamiento, simular_modificacion_vacaciones
+from src.google_calendar import crear_evento_vacaciones, crear_evento_baja, eliminar_evento
 from . import ausencias_bp
 
 # -------------------------------------------------------------------------
@@ -270,6 +271,9 @@ def modificar_vacaciones(id):
             flash(f"Atención: Estás solicitando vacaciones por adelantado ({resultado['saldo_proyectado']} días).", 'warning')
 
         # CREAR NUEVA VERSIÓN (Tarea 5)
+        # Calculate new total days based on the new date range
+        dias_nuevos_totales = calcular_dias_habiles(nueva_fecha_inicio, nueva_fecha_fin)
+        
         nueva_version = SolicitudVacaciones(
             usuario_id=current_user.id,
             grupo_id=original.grupo_id,
@@ -278,16 +282,12 @@ def modificar_vacaciones(id):
             tipo_accion='modificacion',
             fecha_inicio=nueva_fecha_inicio,
             fecha_fin=nueva_fecha_fin,
-            dias_solicitados=resultado['dias_diff'] + original.dias_solicitados, 
+            dias_solicitados=dias_nuevos_totales,
             motivo=motivo,
             estado='pendiente',
             editor_id=current_user.id,
             fecha_solicitud=datetime.utcnow()
         )
-        
-        # Recalculamos dias_solicitados del total nuevo de forma segura
-        nueva_version.dias_solicitados = resultado['dias_diff'] + original.dias_solicitados
-        # Si la simulación devuelve dias_diff, entonces Total Nuevo = Original + Diff
 
         db.session.add(nueva_version)
         db.session.commit()
@@ -502,12 +502,26 @@ def responder_solicitud(id, accion):
             # 1. Actualizar Saldo
             anio = solicitud.fecha_inicio.year
             saldo = SaldoVacaciones.query.filter_by(usuario_id=solicitud.usuario_id, anio=anio).first()
-            if saldo:
-                saldo.dias_disfrutados += solicitud.dias_solicitados
-                # Seguridad básica: permitir negativo con warning en log, o bloquear. 
-                # El usuario ya fue avisado al pedir. Aquí ejecutamos.
+            
+            # Create SaldoVacaciones if it doesn't exist for this user/year
+            if not saldo:
+                saldo = SaldoVacaciones(
+                    usuario_id=solicitud.usuario_id,
+                    anio=anio,
+                    dias_totales=solicitud.usuario.dias_vacaciones,
+                    dias_disfrutados=0
+                )
+                db.session.add(saldo)
+            
+            saldo.dias_disfrutados += solicitud.dias_solicitados
             
             solicitud.estado = 'aprobada'
+            
+            # Sincronizar con Calendar Compartido
+            event_id = crear_evento_vacaciones(solicitud)
+            if event_id:
+                solicitud.google_event_id = event_id
+            
             flash(f'Solicitud de vacaciones aprobada. Días descontados.', 'success')
 
         # --- CASO B: MODIFICACIÓN O CANCELACIÓN (Versionado) ---
@@ -524,6 +538,10 @@ def responder_solicitud(id, accion):
             if v1:
                 v1.es_actual = False
                 dias_reintegro = v1.dias_solicitados
+                
+                # Eliminar evento viejo del Calendar
+                if v1.google_event_id:
+                    eliminar_evento(v1.google_event_id)
             
             # 3. Activar V2 (Esta solicitud)
             solicitud.estado = 'aprobada'
@@ -533,14 +551,30 @@ def responder_solicitud(id, accion):
             coste_nuevo = 0
             if solicitud.tipo_accion == 'modificacion':
                 coste_nuevo = solicitud.dias_solicitados
+                
+                # Crear evento nuevo en Calendar
+                event_id = crear_evento_vacaciones(solicitud)
+                if event_id:
+                    solicitud.google_event_id = event_id
+                    
             elif solicitud.tipo_accion == 'cancelacion':
                 coste_nuevo = 0 # Cancelar implica que no se consumen días
+                # No crear evento (es una cancelación)
             
             anio = solicitud.fecha_inicio.year
             saldo = SaldoVacaciones.query.filter_by(usuario_id=solicitud.usuario_id, anio=anio).first()
             
-            if saldo:
-                saldo.dias_disfrutados = saldo.dias_disfrutados - dias_reintegro + coste_nuevo
+            # Create SaldoVacaciones if it doesn't exist for this user/year
+            if not saldo:
+                saldo = SaldoVacaciones(
+                    usuario_id=solicitud.usuario_id,
+                    anio=anio,
+                    dias_totales=solicitud.usuario.dias_vacaciones,
+                    dias_disfrutados=0
+                )
+                db.session.add(saldo)
+            
+            saldo.dias_disfrutados = saldo.dias_disfrutados - dias_reintegro + coste_nuevo
                 
             flash(f"Solicitud aprobada. Saldo ajustado (Devueltos: {dias_reintegro}, Nuevos: {coste_nuevo}).", 'success')
 
@@ -598,6 +632,12 @@ def responder_baja(id, accion):
     # Procesar Acción
     if accion == 'aprobar':
         solicitud.estado = 'aprobada'
+        
+        # Sincronizar con Calendar Compartido
+        event_id = crear_evento_baja(solicitud)
+        if event_id:
+            solicitud.google_event_id = event_id
+        
         flash(f'Baja/Permiso de {solicitud.usuario.nombre} aprobada.', 'success')
         
     elif accion == 'rechazar':

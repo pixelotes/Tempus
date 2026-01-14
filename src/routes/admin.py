@@ -13,10 +13,9 @@ from . import admin_bp
 @admin_bp.route('/admin/usuarios')
 @admin_required
 def admin_usuarios():
-    # MODIFICADO: No cargamos todos los usuarios de golpe para la vista inicial
-    # Se obtendrán por AJAX o paginación si fuera necesario
+    # MODIFICADO: Solo mostrar usuarios activos (soft delete), ordenados alfabéticamente
     page = request.args.get('page', 1, type=int)
-    usuarios = Usuario.query.paginate(page=page, per_page=20)
+    usuarios = Usuario.query.filter_by(activo=True).order_by(Usuario.nombre).paginate(page=page, per_page=20)
     return render_template('admin/usuarios.html', usuarios=usuarios)
 
 @admin_bp.route('/admin/api/usuarios/buscar')
@@ -30,8 +29,9 @@ def admin_buscar_usuarios():
     if not query or len(query) < 2:
         return {'results': []}
     
-    # Búsqueda insensible a mayúsculas
+    # Búsqueda insensible a mayúsculas (solo usuarios activos)
     usuarios = Usuario.query.filter(
+        Usuario.activo == True,
         or_(
             Usuario.nombre.ilike(f'%{query}%'),
             Usuario.email.ilike(f'%{query}%')
@@ -118,10 +118,6 @@ def admin_editar_usuario(id):
         usuario.dias_vacaciones = int(request.form.get('dias_vacaciones', 25))
         
         password = request.form.get('password')
-        if password:
-            usuario.password = generate_password_hash(password)
-
-        password = request.form.get('password')
         password_changed = False
         
         if password:
@@ -158,14 +154,26 @@ def admin_editar_usuario(id):
 @admin_required
 def admin_eliminar_usuario(id):
     usuario = Usuario.query.get_or_404(id)
-    db.session.delete(usuario)
+    
+    # Guardar datos antes del archivado para logging
+    target_id = usuario.id
+    target_email = usuario.email
+    target_role = usuario.rol
+    
+    # Eliminar relaciones de aprobación (el usuario deja de ser aprobador y pierde sus aprobadores)
+    Aprobador.query.filter(
+        (Aprobador.usuario_id == id) | (Aprobador.aprobador_id == id)
+    ).delete(synchronize_session='fetch')
+    
+    # Archivar usuario (soft delete)
+    usuario.activo = False
     db.session.commit()
 
     # --- LOGGING INICIO ---
     current_app.logger.info(
-        f"Usuario eliminado: {target_email}",
+        f"Usuario archivado: {target_email}",
         extra={
-            "event.action": "user-deletion",
+            "event.action": "user-archive",
             "event.category": ["iam", "configuration"],
             "event.outcome": "success",
             "user.target.id": target_id,
@@ -178,7 +186,7 @@ def admin_eliminar_usuario(id):
     )
     # --- LOGGING FIN ---
     
-    flash('Usuario eliminado correctamente', 'success')
+    flash('Usuario archivado correctamente', 'success')
     return redirect(url_for('admin.admin_usuarios'))
 
 # --- APROBADORES ---
@@ -190,7 +198,8 @@ def admin_aprobadores():
         db.joinedload(Aprobador.usuario),
         db.joinedload(Aprobador.aprobador)
     ).all()
-    usuarios = Usuario.query.all()
+    # Only show active users in dropdown
+    usuarios = Usuario.query.filter_by(activo=True).order_by(Usuario.nombre).all()
     return render_template('admin/aprobadores.html', aprobadores=aprobadores, usuarios=usuarios)
 
 @admin_bp.route('/admin/aprobadores/asignar', methods=['POST'])
@@ -237,7 +246,7 @@ def admin_festivos():
 @admin_bp.route('/admin/festivos/crear', methods=['POST'])
 @admin_required
 def admin_crear_festivo():
-    from src.utils import invalidar_cache_festivos
+    from src.utils import invalidar_cache_festivos, recalcular_vacaciones_por_festivo
     
     fecha = datetime.strptime(request.form.get('fecha'), '%Y-%m-%d').date()
     descripcion = request.form.get('descripcion')
@@ -254,38 +263,107 @@ def admin_crear_festivo():
     db.session.add(festivo)
     db.session.commit()
     
-    invalidar_cache_festivos()
+    # ✅ NUEVO: Recalcular vacaciones afectadas
+    vacaciones_afectadas = recalcular_vacaciones_por_festivo(fecha)
     
-    flash('Festivo añadido correctamente', 'success')
+    if vacaciones_afectadas > 0:
+        flash(f'Festivo añadido. {vacaciones_afectadas} solicitud(es) de vacaciones recalculadas.', 'success')
+    else:
+        flash('Festivo añadido correctamente', 'success')
+    
     return redirect(url_for('admin.admin_festivos'))
 
 # Endpoint para archivar/desarchivar
 @admin_bp.route('/admin/festivos/toggle/<int:id>', methods=['POST'])
 @admin_required
 def admin_toggle_festivo(id):
-    from src.utils import invalidar_cache_festivos
+    from src.utils import recalcular_vacaciones_por_festivo
     
     festivo = Festivo.query.get_or_404(id)
     festivo.activo = not festivo.activo
     db.session.commit()
     
-    invalidar_cache_festivos()
+    # ✅ NUEVO: Recalcular vacaciones afectadas
+    vacaciones_afectadas = recalcular_vacaciones_por_festivo(festivo.fecha)
     
     estado = "activado" if festivo.activo else "archivado"
-    flash(f'Festivo {estado} correctamente', 'success')
+    
+    if vacaciones_afectadas > 0:
+        flash(f'Festivo {estado}. {vacaciones_afectadas} solicitud(es) de vacaciones recalculadas.', 'success')
+    else:
+        flash(f'Festivo {estado} correctamente', 'success')
+    
     return redirect(url_for('admin.admin_festivos'))
 
 @admin_bp.route('/admin/festivos/eliminar/<int:id>', methods=['POST'])
 @admin_required
 def admin_eliminar_festivo(id):
+    from src.utils import recalcular_vacaciones_por_festivo
+    
     festivo = Festivo.query.get_or_404(id)
+    fecha_festivo = festivo.fecha  # Guardar antes de eliminar
+    
     db.session.delete(festivo)
     db.session.commit()
     
-    invalidar_cache_festivos()  # ✅ AÑADIR ESTA LÍNEA
+    # ✅ NUEVO: Recalcular vacaciones afectadas (después de eliminar para que cache se actualice)
+    vacaciones_afectadas = recalcular_vacaciones_por_festivo(fecha_festivo)
     
-    flash('Festivo eliminado correctamente', 'success')
+    if vacaciones_afectadas > 0:
+        flash(f'Festivo eliminado. {vacaciones_afectadas} solicitud(es) de vacaciones recalculadas.', 'success')
+    else:
+        flash('Festivo eliminado correctamente', 'success')
+    
     return redirect(url_for('admin.admin_festivos'))
+
+@admin_bp.route('/admin/festivos/editar/<int:id>', methods=['GET', 'POST'])
+@admin_required
+def admin_editar_festivo(id):
+    from src.utils import recalcular_vacaciones_por_festivo
+    
+    festivo = Festivo.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        fecha_str = request.form.get('fecha')
+        descripcion = request.form.get('descripcion')
+        
+        try:
+            nueva_fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+        except ValueError:
+            flash('Fecha inválida', 'danger')
+            return render_template('admin/editar_festivo.html', festivo=festivo)
+        
+        # Verificar fecha única (excepto la propia)
+        existente = Festivo.query.filter_by(fecha=nueva_fecha).first()
+        if existente and existente.id != id:
+            flash('Ya existe un festivo para esa fecha', 'danger')
+        else:
+            fecha_antigua = festivo.fecha
+            fecha_cambio = (fecha_antigua != nueva_fecha)
+            
+            festivo.fecha = nueva_fecha
+            festivo.descripcion = descripcion
+            db.session.commit()
+            
+            # ✅ NUEVO: Recalcular vacaciones afectadas
+            vacaciones_afectadas = 0
+            
+            if fecha_cambio:
+                # Si cambió la fecha, recalcular para AMBAS fechas
+                vacaciones_afectadas += recalcular_vacaciones_por_festivo(fecha_antigua)
+                vacaciones_afectadas += recalcular_vacaciones_por_festivo(nueva_fecha)
+            else:
+                # Solo cambió descripción, recalcular por si acaso (aunque no debería afectar)
+                vacaciones_afectadas = recalcular_vacaciones_por_festivo(nueva_fecha)
+            
+            if vacaciones_afectadas > 0:
+                flash(f'Festivo actualizado. {vacaciones_afectadas} solicitud(es) de vacaciones recalculadas.', 'success')
+            else:
+                flash('Festivo actualizado correctamente', 'success')
+            
+            return redirect(url_for('admin.admin_festivos'))
+    
+    return render_template('admin/editar_festivo.html', festivo=festivo)
 
 # --- TIPOS DE AUSENCIA ---
 @admin_bp.route('/admin/tipos-ausencia', methods=['GET', 'POST'])
@@ -330,6 +408,36 @@ def admin_toggle_tipo_ausencia(id):
     tipo_msg = 'success' if tipo.activo else 'warning'
     flash(f'Tipo de ausencia "{tipo.nombre}" {estado}.', tipo_msg)
     return redirect(url_for('admin.admin_tipos_ausencia'))
+
+@admin_bp.route('/admin/tipos-ausencia/editar/<int:id>', methods=['GET', 'POST'])
+@admin_required
+def admin_editar_tipo_ausencia(id):
+    tipo = TipoAusencia.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        nombre = request.form.get('nombre')
+        try:
+            max_dias = int(request.form.get('max_dias'))
+        except (ValueError, TypeError):
+            max_dias = 365
+            
+        tipo_dias = request.form.get('tipo_dias', 'naturales')
+        descripcion = request.form.get('descripcion', '')
+        
+        # Verificar nombre único (excepto el propio)
+        existente = TipoAusencia.query.filter_by(nombre=nombre).first()
+        if existente and existente.id != id:
+            flash('Ya existe otro tipo de ausencia con ese nombre', 'danger')
+        else:
+            tipo.nombre = nombre
+            tipo.max_dias = max_dias
+            tipo.tipo_dias = tipo_dias
+            tipo.descripcion = descripcion
+            db.session.commit()
+            flash('Tipo de ausencia actualizado', 'success')
+            return redirect(url_for('admin.admin_tipos_ausencia'))
+    
+    return render_template('admin/editar_tipo_ausencia.html', tipo=tipo)
 
 # --- RESUMEN ---
 @admin_bp.route('/admin/resumen')
@@ -553,14 +661,21 @@ def admin_fichajes_export():
     writer.writerow(['Fecha', 'Usuario', 'Email', 'Entrada', 'Salida', 'Pausa (min)', 'Horas'])
     
     for f in fichajes:
-        horas = ((f.hora_salida.hour * 60 + f.hora_salida.minute) - 
-                 (f.hora_entrada.hour * 60 + f.hora_entrada.minute)) / 60 - (f.pausa / 60)
+        # Skip open fichajes (without hora_salida) to prevent errors
+        if f.hora_salida:
+            horas = ((f.hora_salida.hour * 60 + f.hora_salida.minute) - 
+                     (f.hora_entrada.hour * 60 + f.hora_entrada.minute)) / 60 - (f.pausa / 60)
+            salida_str = f.hora_salida.strftime('%H:%M')
+        else:
+            horas = 0.0
+            salida_str = 'Abierto'
+            
         writer.writerow([
             f.fecha.strftime('%d/%m/%Y'),
             f.usuario.nombre,
             f.usuario.email,
             f.hora_entrada.strftime('%H:%M'),
-            f.hora_salida.strftime('%H:%M'),
+            salida_str,
             f.pausa,
             f'{horas:.2f}'
         ])

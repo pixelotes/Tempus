@@ -98,12 +98,15 @@
             // Recargar también el timeline para ver el nuevo bloque
             initTimeline();
 
-            // Mostrar feedback visual (opcional)
-            // alert(data.mensaje); 
-
         } catch (error) {
-            console.error('Error:', error);
-            alert('Error al procesar el fichaje.');
+            console.error('Error al procesar el fichaje:', error);
+            showConfirmModal(
+                'Error de Fichaje',
+                'No se pudo procesar el fichaje. Por favor, inténtalo de nuevo.',
+                () => Promise.resolve(),
+                'danger',
+                'Cerrar'
+            );
         } finally {
             btn.disabled = false;
             spinner.classList.add('d-none');

@@ -118,6 +118,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
                     },
                     body: JSON.stringify({ fecha_inicio: inicio, fecha_fin: fin })
                 });
@@ -129,7 +130,8 @@
                     diasCount.textContent = diasSolicitados;
 
                     // --- LÓGICA DE VISUALIZACIÓN DE ADELANTO ---
-                    if (diasSolicitados > saldoDisponible) {
+                    // Solo mostrar aviso si hay saldo configurado (>0) y se excede
+                    if (saldoDisponible > 0 && diasSolicitados > saldoDisponible) {
                         const deuda = diasSolicitados - saldoDisponible;
                         diasAdelanto.textContent = deuda;
 

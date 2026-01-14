@@ -71,10 +71,11 @@
                         <td>{{ rel.fecha_asignacion.strftime('%d/%m/%Y') }}</td>
                         <td>
                             <form method="POST" action="{{ url_for('admin.admin_eliminar_aprobador', id=rel.id) }}"
-                                style="display:inline;">
+                                style="display:inline;" class="delete-aprobador-form">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-danger"
-                                    onclick="return confirm('¿Eliminar esta relación?')">
+                                <button type="button" class="btn btn-sm btn-danger delete-aprobador-btn"
+                                    data-usuario-name="{{ rel.usuario.nombre }}"
+                                    data-aprobador-name="{{ rel.aprobador.nombre }}">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>
@@ -91,4 +92,27 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.delete-aprobador-btn').forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                const form = this.closest('form');
+                const usuarioName = this.dataset.usuarioName;
+                const aprobadorName = this.dataset.aprobadorName;
+
+                showConfirmModal(
+                    'Eliminar Relación',
+                    `¿Estás seguro de que deseas eliminar la relación entre "${usuarioName}" y su aprobador "${aprobadorName}"?`,
+                    () => submitFormWithConfirm(form),
+                    'danger',
+                    'Eliminar'
+                );
+            });
+        });
+    });
+</script>
 {% endblock %}

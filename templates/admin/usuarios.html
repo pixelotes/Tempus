@@ -60,11 +60,11 @@
                             </a>
                             {% if usuario.id != current_user.id %}
                             <form method="POST" action="{{ url_for('admin.admin_eliminar_usuario', id=usuario.id) }}"
-                                style="display:inline;">
+                                style="display:inline;" class="archive-user-form">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-danger"
-                                    onclick="return confirm('¿Eliminar este usuario?')">
-                                    <i class="bi bi-trash"></i>
+                                <button type="button" class="btn btn-sm btn-outline-danger archive-user-btn"
+                                    data-user-name="{{ usuario.nombre }}" data-user-email="{{ usuario.email }}">
+                                    <i class="bi bi-archive"></i> Archivar
                                 </button>
                             </form>
                             {% endif %}
@@ -117,6 +117,24 @@
             if (this.value) {
                 window.location.href = "/admin/usuarios/editar/" + this.value;
             }
+        });
+
+        // Modal de confirmación para archivar usuario
+        document.querySelectorAll('.archive-user-btn').forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                const form = this.closest('form');
+                const userName = this.dataset.userName;
+                const userEmail = this.dataset.userEmail;
+
+                showConfirmModal(
+                    'Archivar Usuario',
+                    `¿Estás seguro de que deseas archivar al usuario "${userName}" (${userEmail})?\n\nEl usuario será marcado como inactivo pero sus datos históricos se conservarán.`,
+                    () => submitFormWithConfirm(form),
+                    'warning',
+                    'Archivar'
+                );
+            });
         });
     });
 </script>

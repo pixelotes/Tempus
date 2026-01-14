@@ -29,6 +29,12 @@ class TipoAusencia(db.Model):
 class Usuario(UserMixin, db.Model):
     __tablename__ = 'usuarios'
     
+    # Indexes for performance
+    __table_args__ = (
+        db.Index('idx_usuario_activo', 'activo'),  # For filtering active users
+        db.Index('idx_usuario_email', 'email'),     # For login queries (though unique already helps)
+    )
+    
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
@@ -36,30 +42,30 @@ class Usuario(UserMixin, db.Model):
     rol = db.Column(db.String(20), nullable=False)
     dias_vacaciones = db.Column(db.Integer, default=25)
     fecha_alta = db.Column(db.DateTime, default=datetime.utcnow)
+    activo = db.Column(db.Boolean, default=True, nullable=False)  # Soft delete
     
-    # Relación con fichajes
+    # Relación con fichajes (sin cascade para preservar histórico)
     fichajes = db.relationship(
         'Fichaje', 
         foreign_keys='Fichaje.usuario_id', 
         backref='usuario', 
-        lazy=True, 
-        cascade='all, delete-orphan'
+        lazy=True
     )
     
+    # Relación con vacaciones (sin cascade para preservar histórico)
     solicitudes_vacaciones = db.relationship(
         'SolicitudVacaciones', 
         foreign_keys='SolicitudVacaciones.usuario_id',
         backref='usuario', 
-        lazy=True, 
-        cascade='all, delete-orphan'
+        lazy=True
     )
 
+    # Relación con bajas (sin cascade para preservar histórico)
     solicitudes_bajas = db.relationship(
         'SolicitudBaja',
         foreign_keys='SolicitudBaja.usuario_id',
         back_populates='usuario',
-        lazy=True,
-        cascade='all, delete-orphan'
+        lazy=True
     )
     
     aprobadores = db.relationship('Aprobador', foreign_keys='Aprobador.usuario_id', 
@@ -78,7 +84,8 @@ class Usuario(UserMixin, db.Model):
         
         if saldo:
             return saldo.dias_totales - saldo.dias_disfrutados
-        return 0
+        # Fallback: If no saldo record exists, return full allocation
+        return self.dias_vacaciones
 
     # Relación con saldos de vacaciones
     saldos_vacaciones = db.relationship('SaldoVacaciones', backref='usuario', lazy=True)
@@ -86,10 +93,6 @@ class Usuario(UserMixin, db.Model):
 
 class SaldoVacaciones(db.Model):
     __tablename__ = 'saldos_vacaciones'
-
-    __table_args__ = (
-        UniqueConstraint('usuario_id', 'anio', name='unique_usuario_anio'),
-    )
 
     id = db.Column(db.Integer, primary_key=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
@@ -100,6 +103,8 @@ class SaldoVacaciones(db.Model):
 
     __table_args__ = (
         UniqueConstraint('usuario_id', 'anio', name='unique_usuario_anio'),
+        db.Index('idx_saldo_anio', 'anio'),  # For year-based vacation queries
+        db.Index('idx_saldo_usuario_anio', 'usuario_id', 'anio'),  # Composite for common lookups
     )
 
     def __repr__(self):
@@ -209,6 +214,7 @@ class SolicitudVacaciones(db.Model):
         """
         Calcula dinámicamente cuántos días de adelanto supone esta solicitud
         basándose en el saldo actual del usuario para el año de la solicitud.
+        Solo devuelve adelanto si hay un saldo configurado (> 0) que se excede.
         """
         if not self.usuario:
             return 0
@@ -218,8 +224,8 @@ class SolicitudVacaciones(db.Model):
         anio = self.fecha_inicio.year
         disponible = self.usuario.dias_vacaciones_disponibles(anio)
         
-        # Si pide más de lo que tiene, la diferencia es el adelanto
-        if self.dias_solicitados > disponible:
+        # Solo calcular adelanto si hay saldo configurado (> 0) y se excede
+        if disponible > 0 and self.dias_solicitados > disponible:
             return self.dias_solicitados - disponible
             
         return 0
@@ -303,10 +309,14 @@ class Aprobador(db.Model):
 class Festivo(db.Model):
     __tablename__ = 'festivos'
     
+    __table_args__ = (
+        db.Index('idx_festivo_activo_fecha', 'activo', 'fecha'),  # For active holiday lookups
+    )
+    
     id = db.Column(db.Integer, primary_key=True)
     fecha = db.Column(db.Date, nullable=False, unique=True)
     descripcion = db.Column(db.String(200), nullable=False)
-    activo = db.Column(db.Boolean, default=True, nullable=False)  # ✅ AÑADIR
+    activo = db.Column(db.Boolean, default=True, nullable=False)
     
     def __repr__(self):
         return f'<Festivo {self.fecha} - {self.descripcion}>'

@@ -40,10 +40,20 @@
             },
             events: {{ eventos| tojson }},
         eventClick: function (info) {
-            alert('Tipo: ' + info.event.title + '\n' +
-                'Usuario: ' + info.event.extendedProps.usuario + '\n' +
-                'Desde: ' + info.event.start.toLocaleDateString() + '\n' +
-                'Hasta: ' + info.event.end.toLocaleDateString());
+            const title = info.event.title;
+            const usuario = info.event.extendedProps.usuario || 'N/A';
+            const desde = info.event.start ? info.event.start.toLocaleDateString('es-ES') : 'N/A';
+            const hasta = info.event.end ? info.event.end.toLocaleDateString('es-ES') : 'N/A';
+
+            const message = `Tipo: ${title}\nUsuario: ${usuario}\nDesde: ${desde}\nHasta: ${hasta}`;
+
+            showConfirmModal(
+                'Detalles del Evento',
+                message,
+                () => Promise.resolve(), // No action needed, just close
+                'primary',
+                'Cerrar'
+            );
         }
     });
     calendar.render();

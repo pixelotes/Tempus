@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Tempus{% endblock %}</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -160,11 +161,11 @@
         </a>
         <a href="{{ url_for('admin.admin_resumen') }}" {% if request.endpoint=='admin.admin_resumen' %}class="active" {%
             endif %}>
-            <i class="bi bi-file-earmark-bar-graph"></i> Resumen Vacaciones
+            <i class="bi bi-file-earmark-bar-graph"></i> Días Restantes
         </a>
         <a href="{{ url_for('admin.admin_auditoria') }}" {% if request.endpoint=='admin.admin_auditoria'
             %}class="active" {% endif %}>
-            <i class="bi bi-shield-check"></i> Auditoría
+            <i class="bi bi-shield-check"></i> Auditoría Cambios
         </a>
         {% endif %}
     </div>
@@ -186,8 +187,131 @@
         {% block content %}{% endblock %}
     </div>
 
+    <!-- Modal de Confirmación Global -->
+    <div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmModalTitle">Confirmar Acción</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" id="confirmModalClose"></button>
+                </div>
+                <div class="modal-body" id="confirmModalBody">
+                    ¿Estás seguro de que deseas realizar esta acción?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
+                        id="confirmModalCancel">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="confirmModalAction">
+                        <span id="confirmModalActionText">Confirmar</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/export_csv.js') }}"></script>
+
+    <!-- Helper global para modales de confirmación -->
+    <script>
+        /**
+         * Muestra un modal de confirmación y ejecuta callback al confirmar
+         * @param {string} title - Título del modal
+         * @param {string} message - Mensaje del modal
+         * @param {Function} onConfirm - Función async a ejecutar al confirmar
+         * @param {string} variant - Variante de Bootstrap para el botón (primary, danger, warning, etc.)
+         * @param {string} confirmText - Texto del botón de confirmación
+         */
+        async function showConfirmModal(title, message, onConfirm, variant = 'primary', confirmText = 'Confirmar') {
+            const modalEl = document.getElementById('confirmModal');
+            const modal = new bootstrap.Modal(modalEl);
+
+            // Configurar contenido
+            document.getElementById('confirmModalTitle').textContent = title;
+            document.getElementById('confirmModalBody').textContent = message;
+            document.getElementById('confirmModalActionText').textContent = confirmText;
+
+            const actionBtn = document.getElementById('confirmModalAction');
+            const cancelBtn = document.getElementById('confirmModalCancel');
+            const closeBtn = document.getElementById('confirmModalClose');
+
+            // Configurar variante del botón
+            actionBtn.className = `btn btn-${variant}`;
+
+            // Limpiar listeners previos clonando el botón
+            const newActionBtn = actionBtn.cloneNode(true);
+            actionBtn.parentNode.replaceChild(newActionBtn, actionBtn);
+
+            // Añadir nuevo listener
+            newActionBtn.addEventListener('click', async function () {
+                // Deshabilitar todos los botones
+                newActionBtn.disabled = true;
+                cancelBtn.disabled = true;
+                closeBtn.disabled = true;
+
+                // Mostrar spinner
+                const originalText = newActionBtn.querySelector('#confirmModalActionText').textContent;
+                newActionBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+
+                try {
+                    await onConfirm();
+                    modal.hide();
+                } catch (error) {
+                    console.error('Error en confirmación:', error);
+                    // Re-habilitar botones en caso de error
+                    newActionBtn.disabled = false;
+                    cancelBtn.disabled = false;
+                    closeBtn.disabled = false;
+                    newActionBtn.innerHTML = `<span id="confirmModalActionText">${originalText}</span>`;
+                    alert('Error: ' + (error.message || 'No se pudo completar la acción'));
+                }
+            });
+
+            // Re-habilitar botones al cerrar el modal
+            modalEl.addEventListener('hidden.bs.modal', function () {
+                newActionBtn.disabled = false;
+                cancelBtn.disabled = false;
+                closeBtn.disabled = false;
+                newActionBtn.innerHTML = `<span id="confirmModalActionText">${confirmText}</span>`;
+            }, { once: true });
+
+            modal.show();
+        }
+
+        /**
+         * Helper para enviar formulario con confirmación
+         * @param {HTMLFormElement} form - Formulario a enviar
+         */
+        function submitFormWithConfirm(form) {
+            return new Promise((resolve, reject) => {
+                // Crear FormData y enviar via fetch
+                const formData = new FormData(form);
+
+                fetch(form.action, {
+                    method: form.method || 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': formData.get('csrf_token')
+                    }
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            // Redirigir o recargar según respuesta
+                            if (response.redirected) {
+                                window.location.href = response.url;
+                            } else {
+                                window.location.reload();
+                            }
+                            resolve();
+                        } else {
+                            reject(new Error('Error en la petición'));
+                        }
+                    })
+                    .catch(error => reject(error));
+            });
+        }
+    </script>
+
     {% block extra_js %}{% endblock %}
 </body>
 

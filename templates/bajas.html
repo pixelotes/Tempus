@@ -50,10 +50,10 @@
                         <td>
                             {% if sol.estado == 'pendiente' %}
                             <form method="POST" action="{{ url_for('ausencias.cancelar_baja', id=sol.id) }}"
-                                style="display:inline;">
+                                style="display:inline;" class="cancel-baja-form">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-danger"
-                                    onclick="return confirm('¿Cancelar esta solicitud?')">
+                                <button type="button" class="btn btn-sm btn-outline-danger cancel-baja-btn"
+                                    data-fechas="{{ sol.fecha_inicio.strftime('%d/%m') }} - {{ sol.fecha_fin.strftime('%d/%m') }}">
                                     <i class="bi bi-x-circle"></i> Cancelar
                                 </button>
                             </form>
@@ -69,4 +69,8 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/modal_confirmations.js') }}"></script>
 {% endblock %}

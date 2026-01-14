@@ -33,3 +33,54 @@ def test_crud_tipo_ausencia(auth_admin_client):
     assert tipo is not None
     assert tipo.max_dias == 112
     assert tipo.tipo_dias == 'naturales'
+
+
+# --- TESTS DE ARCHIVADO LÓGICO DE USUARIOS ---
+
+def test_archivar_usuario_soft_delete(auth_admin_client, employee_user):
+    """Verificar que archivar usuario no elimina registros históricos."""
+    from src.models import Usuario
+    
+    # Archivar usuario
+    response = auth_admin_client.post(
+        f'/admin/usuarios/eliminar/{employee_user.id}',
+        follow_redirects=True
+    )
+    assert response.status_code == 200
+    assert "Usuario archivado correctamente" in response.text
+    
+    # Verificar que usuario sigue en DB pero inactivo
+    usuario = Usuario.query.get(employee_user.id)
+    assert usuario is not None
+    assert usuario.activo is False
+
+
+def test_usuario_archivado_no_aparece_en_lista(auth_admin_client, employee_user):
+    """Verificar que usuarios archivados no aparecen en la lista."""
+    from src.models import Usuario
+    from src import db
+    
+    # Archivar
+    employee_user.activo = False
+    db.session.commit()
+    
+    # Verificar que no aparece en lista
+    response = auth_admin_client.get('/admin/usuarios')
+    assert response.status_code == 200
+    assert employee_user.nombre not in response.text
+
+
+def test_usuario_archivado_no_aparece_en_busqueda(auth_admin_client, employee_user):
+    """Verificar que usuarios archivados no aparecen en búsqueda AJAX."""
+    from src.models import Usuario
+    from src import db
+    
+    # Archivar
+    employee_user.activo = False
+    db.session.commit()
+    
+    # Verificar que no aparece en búsqueda
+    response = auth_admin_client.get(f'/admin/api/usuarios/buscar?q={employee_user.nombre[:5]}')
+    assert response.status_code == 200
+    data = response.get_json()
+    assert not any(employee_user.email in r['text'] for r in data.get('results', []))

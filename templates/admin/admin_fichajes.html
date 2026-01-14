@@ -123,10 +123,11 @@
 
                             <form method="POST"
                                 action="{{ url_for('fichajes.eliminar', id=f.id) }}?next={{ request.full_path | urlencode }}"
-                                style="display:inline;">
+                                style="display:inline;" class="delete-fichaje-form">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-danger"
-                                    onclick="return confirm('¿Eliminar este fichaje de {{ f.usuario.nombre }}?')">
+                                <button type="button" class="btn btn-sm btn-danger delete-fichaje-btn"
+                                    data-usuario-name="{{ f.usuario.nombre }}"
+                                    data-fecha="{{ f.fecha.strftime('%d/%m/%Y') }}">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>
@@ -199,6 +200,24 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         setupUserSearch('usuario_search_input', 'usuario_id_hidden', true);
+
+        // Modal de confirmación para eliminar fichaje
+        document.querySelectorAll('.delete-fichaje-btn').forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                const form = this.closest('form');
+                const usuarioName = this.dataset.usuarioName;
+                const fecha = this.dataset.fecha;
+
+                showConfirmModal(
+                    'Eliminar Fichaje',
+                    `¿Estás seguro de que deseas eliminar el fichaje de "${usuarioName}" del día ${fecha}?`,
+                    () => submitFormWithConfirm(form),
+                    'danger',
+                    'Eliminar'
+                );
+            });
+        });
     });
 </script>
 {% endblock %}

@@ -149,10 +149,10 @@
                             </a>
 
                             <form method="POST" action="{{ url_for('fichajes.eliminar', id=fichaje.id) }}"
-                                style="display:inline;">
+                                style="display:inline;" class="delete-my-fichaje-form">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-danger"
-                                    onclick="return confirm('¿Seguro que deseas eliminar este fichaje?')">
+                                <button type="button" class="btn btn-sm btn-danger delete-my-fichaje-btn"
+                                    data-fecha="{{ fichaje.fecha.strftime('%d/%m/%Y') }}">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>
@@ -226,4 +226,8 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/modal_confirmations.js') }}"></script>
 {% endblock %}

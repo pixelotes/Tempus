@@ -89,10 +89,11 @@
                             {% if sol.estado == 'pendiente' and sol.tipo_accion != 'eliminacion' %}
                             <!-- Opción Cancelar si aún no está aprobada -->
                             <form method="POST" action="{{ url_for('ausencias.cancelar_vacaciones', id=sol.id) }}"
-                                style="display:inline;">
+                                style="display:inline;" class="cancel-vacation-form">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-danger"
-                                    onclick="return confirm('¿Cancelar esta solicitud?')">
+                                <button type="button" class="btn btn-sm btn-outline-danger cancel-vacation-btn"
+                                    data-estado="pendiente"
+                                    data-fechas="{{ sol.fecha_inicio.strftime('%d/%m') }} - {{ sol.fecha_fin.strftime('%d/%m') }}">
                                     <i class="bi bi-x-circle"></i> Cancelar
                                 </button>
                             </form>
@@ -109,10 +110,11 @@
                                     <i class="bi bi-pencil"></i> Modificar
                                 </a>
                                 <form method="POST" action="{{ url_for('ausencias.cancelar_vacaciones', id=sol.id) }}"
-                                    style="display:inline;">
+                                    style="display:inline;" class="cancel-vacation-form">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger"
-                                        onclick="return confirm('¿Solicitar cancelación?')">
+                                    <button type="button" class="btn btn-sm btn-outline-danger cancel-vacation-btn"
+                                        data-estado="aprobada"
+                                        data-fechas="{{ sol.fecha_inicio.strftime('%d/%m') }} - {{ sol.fecha_fin.strftime('%d/%m') }}">
                                         <i class="bi bi-trash"></i> Cancelar
                                     </button>
                                 </form>
@@ -138,4 +140,8 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/modal_confirmations.js') }}"></script>
 {% endblock %}
