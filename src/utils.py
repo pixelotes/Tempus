@@ -105,8 +105,8 @@ def recalcular_vacaciones_por_festivo(fecha_festivo):
         # Actualizar la solicitud
         vac.dias_solicitados = dias_nuevos
         
-        # Actualizar el saldo del año correspondiente
-        anio = vac.fecha_inicio.year
+        # Actualizar el saldo del año en que se solicitó
+        anio = vac.fecha_solicitud.year
         saldo = SaldoVacaciones.query.filter_by(
             usuario_id=vac.usuario_id,
             anio=anio
@@ -234,8 +234,8 @@ def simular_modificacion_vacaciones(usuario_id, solicitud_original_id, nueva_fec
     if dias_nuevos <= 0:
         return {'valido': False, 'motivo': 'El rango seleccionado no tiene días hábiles.'}
 
-    # 4. Comprobar Saldo Anual (Modelo Sesame)
-    anio = nueva_fecha_inicio.year
+    # 4. Comprobar Saldo Anual (año de solicitud original)
+    anio = original.fecha_solicitud.year
     saldo = SaldoVacaciones.query.filter_by(usuario_id=usuario_id, anio=anio).first()
 
     # Si no existe saldo, asumimos 0 disponibles
