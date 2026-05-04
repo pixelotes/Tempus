@@ -219,9 +219,8 @@ class SolicitudVacaciones(db.Model):
         if not self.usuario:
             return 0
             
-        # Obtenemos el saldo disponible del usuario para el año de estas vacaciones
-        # Nota: Usamos self.fecha_inicio.year para ser precisos con el año fiscal
-        anio = self.fecha_inicio.year
+        # Usamos el año de la solicitud (cuando se pidió), no el de las fechas de vacaciones
+        anio = self.fecha_solicitud.year
         disponible = self.usuario.dias_vacaciones_disponibles(anio)
         
         # Solo calcular adelanto si hay saldo configurado (> 0) y se excede

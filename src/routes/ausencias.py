@@ -522,9 +522,9 @@ def responder_solicitud(id, accion):
         # --- CASO A: CREACIÓN (Primera vez) ---
         if solicitud.tipo_accion == 'creacion':
             # 1. Actualizar Saldo
-            anio = solicitud.fecha_inicio.year
+            anio = solicitud.fecha_solicitud.year
             saldo = SaldoVacaciones.query.filter_by(usuario_id=solicitud.usuario_id, anio=anio).first()
-            
+
             # Create SaldoVacaciones if it doesn't exist for this user/year
             if not saldo:
                 saldo = SaldoVacaciones(
@@ -534,7 +534,7 @@ def responder_solicitud(id, accion):
                     dias_disfrutados=0
                 )
                 db.session.add(saldo)
-            
+
             saldo.dias_disfrutados += solicitud.dias_solicitados
             
             solicitud.estado = 'aprobada'
@@ -583,9 +583,9 @@ def responder_solicitud(id, accion):
                 coste_nuevo = 0 # Cancelar implica que no se consumen días
                 # No crear evento (es una cancelación)
             
-            anio = solicitud.fecha_inicio.year
+            anio = solicitud.fecha_solicitud.year
             saldo = SaldoVacaciones.query.filter_by(usuario_id=solicitud.usuario_id, anio=anio).first()
-            
+
             # Create SaldoVacaciones if it doesn't exist for this user/year
             if not saldo:
                 saldo = SaldoVacaciones(
@@ -595,7 +595,7 @@ def responder_solicitud(id, accion):
                     dias_disfrutados=0
                 )
                 db.session.add(saldo)
-            
+
             saldo.dias_disfrutados = saldo.dias_disfrutados - dias_reintegro + coste_nuevo
                 
             flash(f"Solicitud aprobada. Saldo ajustado (Devueltos: {dias_reintegro}, Nuevos: {coste_nuevo}).", 'success')
