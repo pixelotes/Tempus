@@ -34,9 +34,13 @@
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Días de Vacaciones Anuales</label>
-                <input type="number" class="form-control" name="dias_vacaciones" value="{{ usuario.dias_vacaciones }}"
-                    min="0" required>
+                <label class="form-label">Días de Vacaciones Anuales (base contractual)</label>
+                <input type="number" class="form-control" value="{{ usuario.dias_vacaciones }}" readonly disabled>
+                <div class="form-text">
+                    <i class="bi bi-info-circle"></i>
+                    Este valor se ajusta en el cierre anual. Para añadir/restar días al saldo del año en curso
+                    usa el botón "Ajustar saldo" (queda registrado en auditoría con justificación).
+                </div>
             </div>
 
             <div class="d-flex gap-2">
@@ -44,6 +48,152 @@
                     <i class="bi bi-save"></i> Actualizar
                 </button>
                 <a href="{{ url_for('admin.admin_usuarios') }}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-calendar-check"></i> Saldo de Vacaciones</span>
+        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                data-bs-target="#modalCambiarSaldo">
+            <i class="bi bi-pencil-square"></i> Ajustar saldo
+        </button>
+    </div>
+    <div class="card-body">
+        {% if saldo_actual %}
+        <p class="mb-1">
+            <strong>Año {{ anio_actual }}:</strong>
+            {{ saldo_actual.dias_totales }} totales ·
+            {{ saldo_actual.dias_disfrutados }} disfrutados ·
+            <strong>{{ saldo_actual.dias_totales - saldo_actual.dias_disfrutados }} restantes</strong>
+            {% if saldo_actual.dias_carryover %}
+            <small class="text-muted">(carryover: {{ saldo_actual.dias_carryover }})</small>
+            {% endif %}
+        </p>
+        {% else %}
+        <p class="mb-1 text-muted">
+            Sin saldo registrado para {{ anio_actual }}. Si aplicas un cambio se creará usando
+            <strong>{{ usuario.dias_vacaciones }}</strong> como base.
+        </p>
+        {% endif %}
+
+        {% if historial_saldo %}
+        <hr>
+        <h6 class="mb-2"><i class="bi bi-clock-history"></i> Últimos cambios manuales</h6>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Año</th>
+                        <th>Antes → Después</th>
+                        <th>Δ</th>
+                        <th>Origen</th>
+                        <th>Por</th>
+                        <th>Motivo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for h in historial_saldo %}
+                    <tr>
+                        <td><small>{{ h.fecha.strftime('%d/%m/%Y %H:%M') }}</small></td>
+                        <td>{{ h.anio }}</td>
+                        <td>{{ h.dias_anteriores }} → {{ h.dias_nuevos }}</td>
+                        <td>
+                            <span class="badge bg-{{ 'success' if h.delta > 0 else 'danger' }}">
+                                {{ '%+d' | format(h.delta) }}
+                            </span>
+                        </td>
+                        <td><small>{{ h.origen }}</small></td>
+                        <td>
+                            <small>
+                                {% if h.actor %}{{ h.actor.nombre }}
+                                {% elif h.actor_label.startswith('system') %}Sistema (CLI)
+                                {% else %}{{ h.actor_label }}
+                                {% endif %}
+                            </small>
+                        </td>
+                        <td>
+                            <small class="text-muted d-inline-block text-truncate" style="max-width: 250px;"
+                                title="{{ h.motivo }}">
+                                {{ h.motivo }}
+                            </small>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="modal fade" id="modalCambiarSaldo" tabindex="-1" aria-labelledby="modalCambiarSaldoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="POST" action="{{ url_for('admin.admin_cambiar_saldo', id=usuario.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalCambiarSaldoLabel">
+                        <i class="bi bi-pencil-square"></i> Ajustar saldo · {{ usuario.nombre }}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="cs_anio" class="form-label">Año</label>
+                        {% if saldos %}
+                        <select name="anio" id="cs_anio" class="form-select" required>
+                            {% for s in saldos %}
+                            <option value="{{ s.anio }}" {% if s.anio == anio_actual %}selected{% endif %}>
+                                {{ s.anio }} · {{ s.dias_totales }} días totales
+                            </option>
+                            {% endfor %}
+                            {% if not saldos | selectattr('anio', 'equalto', anio_actual) | list %}
+                            <option value="{{ anio_actual }}" selected>
+                                {{ anio_actual }} · (sin saldo, se creará desde base contractual)
+                            </option>
+                            {% endif %}
+                        </select>
+                        {% else %}
+                        <input type="number" name="anio" id="cs_anio" class="form-control"
+                            value="{{ anio_actual }}" min="2000" max="2100" required>
+                        <div class="form-text">No hay saldos previos; se creará uno usando la base contractual.</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="cs_delta" class="form-label">Días a sumar / restar</label>
+                        <input type="number" name="delta" id="cs_delta" class="form-control"
+                            placeholder="Ej: 2 (sumar) o -1 (restar)" required>
+                        <div class="form-text">
+                            Positivo añade días, negativo los resta. No puede ser 0 ni dejar el total negativo.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="cs_motivo" class="form-label">Justificación</label>
+                        <textarea name="motivo" id="cs_motivo" class="form-control" rows="3" required minlength="3"
+                            placeholder="Motivo del cambio (queda registrado en auditoría)"></textarea>
+                    </div>
+
+                    <div class="alert alert-warning mb-0">
+                        <small>
+                            <i class="bi bi-exclamation-triangle"></i>
+                            Este cambio queda registrado en la auditoría con tu usuario
+                            (<strong>{{ current_user.email }}</strong>). No se puede deshacer; si te equivocas,
+                            aplica un nuevo cambio en sentido contrario indicándolo en el motivo.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle"></i> Aplicar cambio
+                    </button>
+                </div>
             </div>
         </form>
     </div>

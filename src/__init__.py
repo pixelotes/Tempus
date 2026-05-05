@@ -108,14 +108,15 @@ google_bp = make_google_blueprint(
 )
 app.register_blueprint(google_bp, url_prefix="/login")
 
-# Límite global
-# 5 por segundo para proteger contra ataques de fuerza bruta
-# 30 por minuto debería ser suficiente para la mayoría de los usuarios
-# 3000 por día como límite máximo global, suficiente incluso si se deja la app abierta la 24 horas del día
+# Límite global (doblado: la app es de uso interno y los valores anteriores
+# saltaban demasiado)
+# 10/s para proteger contra ataques de fuerza bruta
+# 60/min holgado para uso normal
+# 10000/día como límite máximo global
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
-    default_limits=["5 per second", "30 per minute", "5000 per day"],
+    default_limits=["10 per second", "60 per minute", "10000 per day"],
     storage_uri="memory://"
 )
 
@@ -233,7 +234,9 @@ app.register_blueprint(fichajes_bp)
 app.register_blueprint(ausencias_bp)
 app.register_blueprint(admin_bp)
 
-from src.cli import cerrar_anio_command, import_users_command, init_admin_command
+from src.cli import cerrar_anio_command, import_users_command, init_admin_command, recalcular_command, cambiar_saldo_command
 app.cli.add_command(cerrar_anio_command)
 app.cli.add_command(import_users_command)
 app.cli.add_command(init_admin_command)
+app.cli.add_command(recalcular_command)
+app.cli.add_command(cambiar_saldo_command)

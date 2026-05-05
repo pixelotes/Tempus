@@ -56,6 +56,8 @@
                             <span class="badge bg-danger">{{ log.tipo_etiqueta }}</span>
                             {% elif 'CREACIÓN' in log.tipo_etiqueta %}
                             <span class="badge bg-info text-dark">{{ log.tipo_etiqueta }}</span>
+                            {% elif 'CAMBIO SALDO' in log.tipo_etiqueta %}
+                            <span class="badge bg-secondary">{{ log.tipo_etiqueta }}</span>
                             {% else %}
                             <span class="badge bg-warning text-dark">{{ log.tipo_etiqueta }}</span>
                             {% endif %}

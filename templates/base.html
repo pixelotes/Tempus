@@ -16,6 +16,15 @@
             background-color: #f8f9fa;
         }
 
+        body.sidebar-open {
+            overflow: hidden;
+        }
+
+        .navbar-brand {
+            min-width: 0;
+            white-space: nowrap;
+        }
+
         .sidebar {
             position: fixed;
             top: 56px;
@@ -45,6 +54,7 @@
         .main-content {
             margin-left: 250px;
             padding: 20px;
+            min-width: 0;
         }
 
         .card {
@@ -52,16 +62,216 @@
             box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
         }
 
-        @media (max-width: 768px) {
-            .sidebar {
+        /* Overlay para cerrar el sidebar en móvil */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 56px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1040;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .sidebar-overlay.show {
+            display: block;
+            opacity: 1;
+        }
+
+        .table-responsive {
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .table {
+            vertical-align: middle;
+        }
+
+        @media (max-width: 767.98px) {
+            body {
+                padding-top: 56px;
+            }
+
+            h1 {
+                font-size: 1.55rem;
+                line-height: 1.25;
+            }
+
+            h2 {
+                font-size: 1.35rem;
+            }
+
+            h3 {
+                font-size: 1.2rem;
+            }
+
+            .navbar .container-fluid {
+                flex-wrap: nowrap;
+                gap: 0.25rem;
+            }
+
+            .navbar-brand {
+                flex: 1 1 auto;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .navbar-toggler {
+                flex: 0 0 auto;
+                padding: 0.25rem 0.5rem;
+            }
+
+            .navbar-collapse {
+                position: fixed;
+                top: 56px;
+                left: 0;
+                right: 0;
+                padding: 0.75rem 1rem 1rem;
+                background-color: #212529;
+                box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.2);
+            }
+
+            .navbar-nav .dropdown-menu {
+                position: static;
                 width: 100%;
-                height: auto;
-                position: relative;
-                top: 0;
+                margin-top: 0.5rem;
+            }
+
+            .sidebar {
+                width: 280px;
+                max-width: calc(100vw - 3rem);
+                position: fixed;
+                top: 56px;
+                left: -280px;
+                bottom: 0;
+                z-index: 1045;
+                padding: 12px 0 max(20px, env(safe-area-inset-bottom));
+                transition: left 0.3s ease;
+            }
+
+            .sidebar.show {
+                left: 0;
             }
 
             .main-content {
                 margin-left: 0;
+                padding: 16px 12px max(24px, env(safe-area-inset-bottom));
+                width: 100%;
+                overflow-x: hidden;
+            }
+
+            .container.mt-5 {
+                margin-top: 1rem !important;
+                padding-left: 12px;
+                padding-right: 12px;
+            }
+
+            .card {
+                border-radius: 0.5rem;
+                margin-bottom: 16px;
+            }
+
+            .card-body {
+                padding: 1rem;
+            }
+
+            .d-flex.justify-content-between.align-items-center.mb-4 {
+                align-items: stretch !important;
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .d-flex.justify-content-between.align-items-center.mb-4 > .btn,
+            .d-flex.justify-content-between.align-items-center.mb-4 > .btn-group {
+                width: 100%;
+            }
+
+            .btn-group {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+
+            .btn-group > .btn,
+            .btn-group > a,
+            .btn-group > form {
+                flex: 1 1 100%;
+                border-radius: 0.375rem !important;
+            }
+
+            .alert.d-flex.justify-content-between.align-items-center {
+                align-items: flex-start !important;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .row.g-3 > [class*="col-auto"] {
+                width: 100%;
+            }
+
+            .row.g-3 > .ms-auto {
+                margin-left: 0 !important;
+            }
+
+            .table-responsive {
+                margin-left: -1rem;
+                margin-right: -1rem;
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+
+            .table {
+                min-width: 640px;
+                font-size: 0.9rem;
+            }
+
+            .table .btn,
+            .table .badge {
+                white-space: nowrap;
+            }
+
+            .pagination {
+                flex-wrap: wrap;
+                gap: 0.25rem;
+            }
+
+            .pagination .page-link {
+                border-radius: 0.375rem;
+            }
+
+            .modal-dialog {
+                margin: 0.75rem;
+            }
+
+            .fc .fc-toolbar {
+                align-items: stretch;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .fc .fc-toolbar-chunk {
+                display: flex;
+                justify-content: center;
+            }
+
+            .fc .fc-toolbar-title {
+                font-size: 1.1rem;
+                text-align: center;
+            }
+
+            .fc .fc-button {
+                padding: 0.25rem 0.45rem;
+                font-size: 0.85rem;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .sidebar,
+            .sidebar-overlay,
+            .sidebar a {
+                transition: none;
             }
         }
     </style>
@@ -71,6 +281,12 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
         <div class="container-fluid">
+            {% if current_user.is_authenticated %}
+            <button class="btn btn-dark d-md-none me-2" type="button" id="sidebarToggle"
+                aria-controls="sidebar" aria-expanded="false" aria-label="Abrir menú">
+                <i class="bi bi-list" style="font-size: 1.5rem;"></i>
+            </button>
+            {% endif %}
             <a class="navbar-brand" href="{{ url_for('main.index') }}">
                 <i class="bi bi-clock-history"></i> Tempus
             </a>
@@ -102,7 +318,8 @@
     </nav>
 
     {% if current_user.is_authenticated %}
-    <div class="sidebar">
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar" aria-label="Menú principal">
         <a href="{{ url_for('main.index') }}" {% if request.endpoint=='main.index' %}class="active" {% endif %}>
             <i class="bi bi-house-door"></i> Inicio
         </a>
@@ -169,6 +386,9 @@
         </a>
         {% endif %}
     </div>
+
+    <!-- Overlay para cerrar sidebar en móvil -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
     {% endif %}
 
     <div class="{% if current_user.is_authenticated %}main-content{% else %}container mt-5{% endif %}">
@@ -211,6 +431,67 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/export_csv.js') }}"></script>
+
+    <!-- Control del sidebar móvil -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+
+            if (sidebarToggle && sidebar && overlay) {
+                const openSidebar = function() {
+                    sidebar.classList.add('show');
+                    overlay.classList.add('show');
+                    document.body.classList.add('sidebar-open');
+                    sidebarToggle.setAttribute('aria-expanded', 'true');
+                    sidebarToggle.setAttribute('aria-label', 'Cerrar menú');
+                };
+
+                const closeSidebar = function() {
+                    sidebar.classList.remove('show');
+                    overlay.classList.remove('show');
+                    document.body.classList.remove('sidebar-open');
+                    sidebarToggle.setAttribute('aria-expanded', 'false');
+                    sidebarToggle.setAttribute('aria-label', 'Abrir menú');
+                };
+
+                sidebarToggle.addEventListener('click', function() {
+                    if (sidebar.classList.contains('show')) {
+                        closeSidebar();
+                    } else {
+                        openSidebar();
+                    }
+                });
+
+                // Cerrar sidebar al hacer clic en el overlay
+                overlay.addEventListener('click', closeSidebar);
+
+                // Cerrar sidebar al hacer clic en cualquier enlace del menú
+                const sidebarLinks = sidebar.querySelectorAll('a');
+                sidebarLinks.forEach(link => {
+                    link.addEventListener('click', function() {
+                        // Solo cerrar en móvil (cuando el overlay es visible)
+                        if (window.innerWidth < 768) {
+                            closeSidebar();
+                        }
+                    });
+                });
+
+                document.addEventListener('keydown', function(event) {
+                    if (event.key === 'Escape' && sidebar.classList.contains('show')) {
+                        closeSidebar();
+                    }
+                });
+
+                window.addEventListener('resize', function() {
+                    if (window.innerWidth >= 768) {
+                        closeSidebar();
+                    }
+                });
+            }
+        });
+    </script>
 
     <!-- Helper global para modales de confirmación -->
     <script>

@@ -111,6 +111,33 @@ class SaldoVacaciones(db.Model):
         return f'<SaldoVacaciones {self.usuario.nombre} - {self.anio}>'
 
 
+class CambioSaldo(db.Model):
+    __tablename__ = 'cambios_saldo'
+
+    __table_args__ = (
+        db.Index('idx_cambio_saldo_usuario', 'usuario_id'),
+        db.Index('idx_cambio_saldo_fecha', 'fecha'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    actor_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
+    actor_label = db.Column(db.String(100), nullable=False)
+    anio = db.Column(db.Integer, nullable=False)
+    dias_anteriores = db.Column(db.Integer, nullable=False)
+    dias_nuevos = db.Column(db.Integer, nullable=False)
+    delta = db.Column(db.Integer, nullable=False)
+    motivo = db.Column(db.Text, nullable=False)
+    origen = db.Column(db.String(20), nullable=False)
+    fecha = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    usuario = db.relationship('Usuario', foreign_keys=[usuario_id])
+    actor = db.relationship('Usuario', foreign_keys=[actor_id])
+
+    def __repr__(self):
+        return f'<CambioSaldo u={self.usuario_id} {self.anio} {self.delta:+d}>'
+
+
 class Fichaje(db.Model):
     __tablename__ = 'fichajes'
 
