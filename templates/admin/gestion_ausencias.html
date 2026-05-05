@@ -79,6 +79,7 @@
                         <th>Hasta</th>
                         <th>Días</th>
                         <th>Estado</th>
+                        <th>Creada</th>
                         <th>Motivo</th>
                     </tr>
                 </thead>
@@ -112,6 +113,16 @@
                             {% endif %}
                         </td>
                         <td>
+                            {% if item.fecha_solicitud %}
+                            <small>
+                                {{ item.fecha_solicitud.strftime('%d/%m/%Y') }}<br>
+                                <span class="text-muted">{{ item.fecha_solicitud.strftime('%H:%M') }}</span>
+                            </small>
+                            {% else %}
+                            <small class="text-muted">-</small>
+                            {% endif %}
+                        </td>
+                        <td>
                             <small class="text-muted d-inline-block text-truncate" style="max-width: 200px;"
                                 title="{{ item.motivo }}">
                                 {{ item.motivo or '-' }}
@@ -120,7 +131,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="7" class="text-center py-4 text-muted">
+                        <td colspan="8" class="text-center py-4 text-muted">
                             No se encontraron ausencias con estos filtros.
                         </td>
                     </tr>

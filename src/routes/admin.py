@@ -6,8 +6,8 @@ from datetime import datetime, date, timedelta
 from calendar import monthrange
 
 from src import db, admin_required
-from src.models import Usuario, Aprobador, Fichaje, SolicitudVacaciones, Festivo, TipoAusencia, SolicitudBaja
-from src.utils import invalidar_cache_festivos
+from src.models import Usuario, Aprobador, Fichaje, SolicitudVacaciones, Festivo, TipoAusencia, SolicitudBaja, CambioSaldo, SaldoVacaciones
+from src.utils import invalidar_cache_festivos, aplicar_cambio_saldo
 from . import admin_bp
 
 @admin_bp.route('/admin/usuarios')
@@ -115,8 +115,9 @@ def admin_editar_usuario(id):
         usuario.nombre = request.form.get('nombre')
         usuario.email = request.form.get('email')
         usuario.rol = request.form.get('rol')
-        usuario.dias_vacaciones = int(request.form.get('dias_vacaciones', 25))
-        
+        # Nota: dias_vacaciones (base contractual) ya no se modifica desde aquí.
+        # Para ajustes de saldo usar 'flask cambiar-saldo' (queda en auditoría).
+
         password = request.form.get('password')
         password_changed = False
         
@@ -147,8 +148,84 @@ def admin_editar_usuario(id):
         
         flash('Usuario actualizado correctamente', 'success')
         return redirect(url_for('admin.admin_usuarios'))
-    
-    return render_template('admin/editar_usuario.html', usuario=usuario)
+
+    anio_actual = datetime.now().year
+    saldo_actual = SaldoVacaciones.query.filter_by(usuario_id=usuario.id, anio=anio_actual).first()
+    saldos = (SaldoVacaciones.query
+              .filter_by(usuario_id=usuario.id)
+              .order_by(SaldoVacaciones.anio.desc())
+              .all())
+    historial_saldo = (CambioSaldo.query
+                       .filter_by(usuario_id=usuario.id)
+                       .order_by(CambioSaldo.fecha.desc())
+                       .limit(5)
+                       .all())
+
+    return render_template('admin/editar_usuario.html',
+                           usuario=usuario,
+                           anio_actual=anio_actual,
+                           saldo_actual=saldo_actual,
+                           saldos=saldos,
+                           historial_saldo=historial_saldo)
+
+
+@admin_bp.route('/admin/usuarios/<int:id>/cambiar-saldo', methods=['POST'])
+@admin_required
+def admin_cambiar_saldo(id):
+    usuario = Usuario.query.get_or_404(id)
+    motivo = (request.form.get('motivo') or '').strip()
+
+    try:
+        delta = int(request.form.get('delta', '0'))
+    except (TypeError, ValueError):
+        flash('El valor de delta debe ser un número entero.', 'danger')
+        return redirect(url_for('admin.admin_editar_usuario', id=id))
+
+    anio_raw = request.form.get('anio')
+    try:
+        anio = int(anio_raw) if anio_raw else None
+    except (TypeError, ValueError):
+        flash('El año debe ser un número entero.', 'danger')
+        return redirect(url_for('admin.admin_editar_usuario', id=id))
+
+    try:
+        cambio = aplicar_cambio_saldo(
+            usuario=usuario,
+            delta=delta,
+            motivo=motivo,
+            anio=anio,
+            actor=current_user,
+            origen='gui',
+        )
+    except ValueError as e:
+        flash(f'No se ha podido aplicar el cambio: {e}', 'danger')
+        return redirect(url_for('admin.admin_editar_usuario', id=id))
+
+    current_app.logger.info(
+        f"Cambio de saldo aplicado: {usuario.email} {cambio.delta:+d} días en {cambio.anio}",
+        extra={
+            "event.action": "saldo-change",
+            "event.category": ["iam", "configuration"],
+            "event.module": "admin",
+            "user.target.id": usuario.id,
+            "user.target.email": usuario.email,
+            "saldo.anio": cambio.anio,
+            "saldo.delta": cambio.delta,
+            "saldo.dias_anteriores": cambio.dias_anteriores,
+            "saldo.dias_nuevos": cambio.dias_nuevos,
+            "saldo.motivo": cambio.motivo,
+            "actor.email": current_user.email,
+            "actor.id": current_user.id,
+            "source.ip": request.remote_addr,
+        }
+    )
+
+    flash(
+        f'Saldo de {usuario.nombre} actualizado: {cambio.dias_anteriores} → {cambio.dias_nuevos} '
+        f'días en {cambio.anio} ({cambio.delta:+d}).',
+        'success'
+    )
+    return redirect(url_for('admin.admin_editar_usuario', id=id))
 
 @admin_bp.route('/admin/usuarios/eliminar/<int:id>', methods=['POST'])
 @admin_required
@@ -906,9 +983,41 @@ def admin_auditoria():
             'motivo': b.motivo or '-'
         })
 
+    # 4. AUDITORÍA DE CAMBIOS DE SALDO (manuales, vía CLI o futura GUI)
+    query_saldo = CambioSaldo.query.join(Usuario, CambioSaldo.usuario_id == Usuario.id)
+
+    if usuario_nombre:
+        query_saldo = query_saldo.filter(Usuario.nombre.ilike(f'%{usuario_nombre}%'))
+    if fecha_inicio:
+        query_saldo = query_saldo.filter(CambioSaldo.fecha >= datetime.strptime(fecha_inicio, '%Y-%m-%d'))
+    if fecha_fin:
+        fin_saldo = datetime.strptime(fecha_fin, '%Y-%m-%d') + timedelta(days=1)
+        query_saldo = query_saldo.filter(CambioSaldo.fecha < fin_saldo)
+
+    for c in query_saldo.all():
+        if c.actor:
+            editor_label = c.actor.nombre
+        elif c.actor_label.startswith('system'):
+            editor_label = 'Sistema (CLI)'
+        else:
+            editor_label = c.actor_label
+
+        logs_unificados.append({
+            'fecha_accion': c.fecha,
+            'tipo_etiqueta': 'CAMBIO SALDO',
+            'empleado': c.usuario.nombre,
+            'editor': editor_label,
+            'objeto': 'Saldo Vacaciones',
+            'detalle': (
+                f"Año {c.anio}: {c.dias_anteriores} → {c.dias_nuevos} días "
+                f"({c.delta:+d}) [{c.origen}]"
+            ),
+            'motivo': c.motivo or '-',
+        })
+
     # Ordenar cronológicamente (más reciente arriba)
     logs_unificados.sort(key=lambda x: x['fecha_accion'], reverse=True)
-    
+
     # Renderizamos la plantilla nueva que sabe mostrar esta lista unificada
     return render_template('admin/auditoria.html', logs=logs_unificados)
 

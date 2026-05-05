@@ -1,6 +1,6 @@
 from functools import lru_cache
 from datetime import timedelta, date, datetime
-from src.models import Festivo, SolicitudVacaciones, SolicitudBaja, SaldoVacaciones, Fichaje
+from src.models import Festivo, SolicitudVacaciones, SolicitudBaja, SaldoVacaciones, Fichaje, CambioSaldo
 from sqlalchemy import or_, and_
 
 
@@ -306,5 +306,84 @@ def verificar_solapamiento_fichaje(usuario_id, fecha, hora_entrada, hora_salida,
     
     if conflicto:
         return True, f"Solapamiento con fichaje existente ({conflicto.hora_entrada.strftime('%H:%M')} - {conflicto.hora_salida.strftime('%H:%M')})"
-    
+
     return False, None
+
+
+def aplicar_cambio_saldo(usuario, delta, motivo, anio=None, actor=None, origen='gui'):
+    """
+    Aplica un ajuste de saldo (positivo o negativo) sobre 'dias_totales'
+    del SaldoVacaciones del año indicado y registra el evento en la tabla
+    de auditoría 'cambios_saldo'.
+
+    No modifica la base contractual (Usuario.dias_vacaciones); esa se ajusta
+    a través del cierre anual.
+
+    Args:
+        usuario (Usuario): usuario destino del ajuste.
+        delta (int): días a sumar (>0) o restar (<0). No puede ser 0.
+        motivo (str): justificación obligatoria.
+        anio (int|None): año del saldo a ajustar. Por defecto, año actual.
+        actor (Usuario|None): quien realiza el cambio. None = sistema (CLI).
+        origen (str): 'cli' o 'gui'.
+
+    Returns:
+        CambioSaldo: registro de auditoría creado.
+
+    Raises:
+        ValueError: si motivo vacío, delta == 0 o el resultado quedaría < 0.
+    """
+    from src import db
+
+    if not motivo or not motivo.strip():
+        raise ValueError("Se requiere una justificación (motivo).")
+    if delta == 0:
+        raise ValueError("El delta debe ser distinto de 0.")
+    if anio is None:
+        anio = datetime.now().year
+
+    saldo = SaldoVacaciones.query.filter_by(usuario_id=usuario.id, anio=anio).first()
+    if saldo is None:
+        saldo = SaldoVacaciones(
+            usuario_id=usuario.id,
+            anio=anio,
+            dias_totales=usuario.dias_vacaciones,
+            dias_disfrutados=0,
+            dias_carryover=0,
+        )
+        db.session.add(saldo)
+        db.session.flush()
+
+    dias_anteriores = saldo.dias_totales
+    dias_nuevos = dias_anteriores + delta
+
+    if dias_nuevos < 0:
+        raise ValueError(
+            f"El nuevo total ({dias_nuevos}) no puede ser negativo "
+            f"(actual: {dias_anteriores}, delta: {delta:+d})."
+        )
+
+    saldo.dias_totales = dias_nuevos
+
+    if actor is not None:
+        actor_id = actor.id
+        actor_label = f'admin:{actor.email}'
+    else:
+        actor_id = None
+        actor_label = 'system:cli'
+
+    cambio = CambioSaldo(
+        usuario_id=usuario.id,
+        actor_id=actor_id,
+        actor_label=actor_label,
+        anio=anio,
+        dias_anteriores=dias_anteriores,
+        dias_nuevos=dias_nuevos,
+        delta=delta,
+        motivo=motivo.strip(),
+        origen=origen,
+    )
+    db.session.add(cambio)
+    db.session.commit()
+
+    return cambio

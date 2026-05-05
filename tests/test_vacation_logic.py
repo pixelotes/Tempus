@@ -62,8 +62,8 @@ def test_solicitud_vacaciones_audit_fields(test_app, employee_user, admin_user):
 
 def test_dias_vacaciones_disponibles_new_logic(test_app, employee_user):
     """Test the new dias_vacaciones_disponibles logic."""
-    # Case 1: No Saldo entry
-    assert employee_user.dias_vacaciones_disponibles(anio=2024) == 0
+    # Case 1: No Saldo entry → fallback a la base contractual del usuario
+    assert employee_user.dias_vacaciones_disponibles(anio=2024) == employee_user.dias_vacaciones
 
     # Case 2: Saldo entry exists
     saldo = SaldoVacaciones(
