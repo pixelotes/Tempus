@@ -71,3 +71,45 @@ env:
 # Si tienes un secreto creado manualmente (ej: sealed-secrets o external-secrets)
 # pon el nombre aquí. La chart cargará todo el contenido como variables de entorno.
 existingSecret: ""
+
+# --- Backup Configuration ---
+# CronJob que vuelca la base de datos a un repositorio restic (S3, B2, etc.).
+# Soporta SQLite (vía `sqlite3 .backup`) y Postgres interno/externo (vía `pg_dump`).
+# Las credenciales de AWS pueden venir de un Secret o, en EKS, vía IRSA.
+backup:
+  enabled: false
+  schedule: "0 3 * * *"          # Diario a las 3 AM
+  image:
+    # IMPORTANTE: la imagen debe incluir restic + sqlite3 + postgresql-client
+    repository: pixelotes/tempus-backup
+    tag: "latest"
+  # Claves requeridas en el Secret: RESTIC_REPOSITORY, RESTIC_PASSWORD
+  # Si aws.useIRSA=false también: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+  existingSecret: ""
+  aws:
+    # Si es true, no se inyectan AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY para que
+    # restic use el token IRSA inyectado por el pod identity webhook de EKS.
+    # Requiere ServiceAccount anotada con eks.amazonaws.com/role-arn.
+    useIRSA: false
+    # Opcional: fija AWS_DEFAULT_REGION (requerido por STS para IRSA en algunos setups)
+    region: ""
+  serviceAccount:
+    # Crea una ServiceAccount dedicada para el CronJob de backup.
+    create: false
+    # Nombre de la SA. Si create=true y está vacío, usa "<release>-backup".
+    # Si create=false, debe apuntar a una SA existente.
+    name: ""
+    # Anotaciones para la SA. Para IRSA en EKS:
+    #   eks.amazonaws.com/role-arn: arn:aws:iam::<account>:role/<role-name>
+    annotations: {}
+  retention:
+    keepDaily: 7
+    keepWeekly: 4
+    keepMonthly: 6
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

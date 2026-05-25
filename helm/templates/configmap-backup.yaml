@@ -1,0 +1,66 @@
+{{- if .Values.backup.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "fichador.fullname" . }}-backup-script
+  labels:
+    {{- include "fichador.labels" . | nindent 4 }}
+data:
+  backup.sh: |
+    #!/bin/sh
+    set -e
+
+    DUMP_DIR="/backup/database"
+    TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
+    echo "=== Tempus Backup - ${TIMESTAMP} ==="
+
+    # --- 1. Initialize restic repo if needed ---
+    echo "[1/4] Checking restic repository..."
+    restic snapshots > /dev/null 2>&1 || {
+      echo "  Repository not found, initializing..."
+      restic init
+    }
+
+    # --- 2. Database dump ---
+    echo "[2/4] Dumping database (type: ${DB_TYPE})..."
+    mkdir -p "${DUMP_DIR}"
+    # Clean previous dumps (we only keep the latest in the staging dir)
+    rm -f "${DUMP_DIR}"/*.gz
+
+    case "${DB_TYPE}" in
+      sqlite)
+        DUMP_FILE="${DUMP_DIR}/tempus-${TIMESTAMP}.db.gz"
+        # Atomic hot backup via sqlite3 .backup, then gzip
+        TMP_DB="${DUMP_DIR}/tempus-${TIMESTAMP}.db"
+        sqlite3 "${SQLITE_PATH}" ".backup '${TMP_DB}'"
+        gzip "${TMP_DB}"
+        ;;
+      postgres)
+        DUMP_FILE="${DUMP_DIR}/tempus-${TIMESTAMP}.sql.gz"
+        pg_dump "${DATABASE_URL}" | gzip > "${DUMP_FILE}"
+        ;;
+      *)
+        echo "  ERROR: unknown DB_TYPE='${DB_TYPE}'" >&2
+        exit 1
+        ;;
+    esac
+    DUMP_SIZE=$(du -h "${DUMP_FILE}" | cut -f1)
+    echo "  Dump complete: ${DUMP_FILE} (${DUMP_SIZE})"
+
+    # --- 3. Send dump to restic ---
+    echo "[3/4] Sending to restic..."
+    restic backup "${DUMP_DIR}" \
+      --tag tempus \
+      --tag "db-${TIMESTAMP}"
+
+    # --- 4. Apply retention policy ---
+    echo "[4/4] Applying retention policy..."
+    restic forget \
+      --keep-daily {{ .Values.backup.retention.keepDaily }} \
+      --keep-weekly {{ .Values.backup.retention.keepWeekly }} \
+      --keep-monthly {{ .Values.backup.retention.keepMonthly }} \
+      --prune
+
+    echo "=== Backup complete ==="
+{{- end -}}

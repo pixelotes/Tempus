@@ -1,0 +1,26 @@
+# Tempus backup image
+# Used by the backup CronJob defined in helm/templates/cronjob-backup.yaml.
+# Bundles the tooling the script needs:
+#   - restic              : repo-aware deduplicating backup tool (target: S3/B2/etc.)
+#   - sqlite              : sqlite3 CLI for hot `.backup` of the SQLite DB
+#   - postgresql16-client : pg_dump for internal/external Postgres
+#   - gzip / ca-certs / tz: compression, TLS, timestamps
+FROM alpine:3.20
+
+RUN apk add --no-cache \
+        restic \
+        postgresql16-client \
+        sqlite \
+        gzip \
+        ca-certificates \
+        tzdata \
+    && rm -rf /var/cache/apk/*
+
+# restic needs a writable HOME for its cache
+ENV HOME=/root
+
+# Sanity check at build time
+RUN restic version && sqlite3 -version && pg_dump --version
+
+# No ENTRYPOINT: the helm CronJob invokes `sh /scripts/backup.sh` directly.
+CMD ["sh"]
