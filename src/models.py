@@ -42,7 +42,7 @@ class Usuario(UserMixin, db.Model):
     rol = db.Column(db.String(20), nullable=False)
     dias_vacaciones = db.Column(db.Integer, default=25)
     fecha_alta = db.Column(db.DateTime, default=datetime.utcnow)
-    activo = db.Column(db.Boolean, default=True, nullable=False)  # Soft delete
+    activo = db.Column(db.Boolean, default=True, server_default=db.text('true'), nullable=False)  # Soft delete
     
     # Relación con fichajes (sin cascade para preservar histórico)
     fichajes = db.relationship(
