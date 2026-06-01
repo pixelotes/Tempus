@@ -15,16 +15,15 @@
         <div class="row text-center">
             <div class="col-md-4">
                 <h5>Días Totales</h5>
-                <h2 class="text-primary">{{ current_user.dias_vacaciones }}</h2>
+                <h2 class="text-primary">{{ dias_totales }}</h2>
             </div>
             <div class="col-md-4">
                 <h5>Días Disfrutados</h5>
-                <h2 class="text-warning">{{ current_user.dias_vacaciones - current_user.dias_vacaciones_disponibles() }}
-                </h2>
+                <h2 class="text-warning">{{ dias_disfrutados }}</h2>
             </div>
             <div class="col-md-4">
                 <h5>Días Disponibles</h5>
-                <h2 class="text-success">{{ current_user.dias_vacaciones_disponibles() }}</h2>
+                <h2 class="text-success">{{ dias_disponibles }}</h2>
             </div>
         </div>
     </div>

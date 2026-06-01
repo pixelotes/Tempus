@@ -48,7 +48,25 @@ def listar_vacaciones():
     for sol in solicitudes_principales:
         sol.cambio_pendiente = cambios_pendientes.get(sol.grupo_id)
 
-    return render_template('vacaciones.html', solicitudes=solicitudes_principales, today=date.today())
+    # 4. Saldo del año actual: las tres cifras deben salir del MISMO origen
+    #    (saldos_vacaciones), no mezclar el total contractual del usuario con
+    #    los disponibles derivados del saldo.
+    anio = date.today().year
+    saldo = SaldoVacaciones.query.filter_by(usuario_id=current_user.id, anio=anio).first()
+    if saldo:
+        dias_totales = saldo.dias_totales
+        dias_disfrutados = saldo.dias_disfrutados
+    else:
+        # Sin saldo registrado: caemos al valor contractual base
+        dias_totales = current_user.dias_vacaciones
+        dias_disfrutados = 0
+    dias_disponibles = dias_totales - dias_disfrutados
+
+    return render_template('vacaciones.html', solicitudes=solicitudes_principales,
+                           today=date.today(),
+                           dias_totales=dias_totales,
+                           dias_disfrutados=dias_disfrutados,
+                           dias_disponibles=dias_disponibles)
 
 
 @ausencias_bp.route('/vacaciones/solicitar', methods=['GET', 'POST'])

@@ -1157,7 +1157,12 @@ def admin_gestion_ausencias():
     resultados.sort(key=lambda x: x.fecha_inicio, reverse=True)
     
     # 5. Calcular totales para la barra azul (Estilo Admin Fichajes)
-    total_dias = sum(r.dias_solicitados for r in resultados)
+    #    Las solicitudes de cancelación se muestran en el listado como histórico,
+    #    pero NO consumen días, así que se excluyen del total.
+    total_dias = sum(
+        r.dias_solicitados for r in resultados
+        if getattr(r, 'tipo_accion', None) != 'cancelacion'
+    )
     
     # 6. Datos para selectores
     # usuarios = Usuario.query.order_by(Usuario.nombre).all() <-- ELIMINADO
