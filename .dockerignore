@@ -39,5 +39,8 @@ Thumbs.db
 # Excluir otros archivos de la app
 logs/
 logs/*
-migrations/
-migrations/*
+
+# NOTA: migrations/ debe ir DENTRO de la imagen. Contiene la baseline de Alembic
+# (ae8bd2a26bb2) que la BD ya tiene sellada en alembic_version. Si se excluye,
+# el entrypoint hace 'flask db init' sobre una carpeta vacía y 'flask db upgrade'
+# falla con "Can't locate revision identified by ...".
