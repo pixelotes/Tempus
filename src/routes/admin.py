@@ -1,4 +1,5 @@
 from flask import current_app, render_template, request, redirect, url_for, flash
+from flask import send_file
 from flask_login import current_user
 from werkzeug.security import generate_password_hash
 from sqlalchemy import func, or_, case, cast, Float, extract
@@ -8,6 +9,7 @@ from calendar import monthrange
 from src import db, admin_required
 from src.models import Usuario, Aprobador, Fichaje, SolicitudVacaciones, Festivo, TipoAusencia, SolicitudBaja, CambioSaldo, SaldoVacaciones
 from src.utils import invalidar_cache_festivos, aplicar_cambio_saldo
+from src.services.export_service import generate_user_report
 from . import admin_bp
 
 @admin_bp.route('/admin/usuarios')
@@ -1179,3 +1181,19 @@ def admin_gestion_ausencias():
                            fecha_inicio=fecha_inicio_str,
                            fecha_fin=fecha_fin_str,
                            total_dias=total_dias)
+@admin_bp.route('/admin/users/<int:user_id>/export')
+@admin_required
+def export_user_report(user_id):
+    usuario = Usuario.query.get_or_404(user_id)
+    fichajes = Fichaje.query.filter_by(usuario_id=user_id).all()
+    # Nota: El script original exportaba tanto vacaciones como bajas (solicitudes_bajas)
+    ausencias = SolicitudVacaciones.query.filter_by(usuario_id=user_id).all()
+    
+    output = generate_user_report(usuario, fichajes, ausencias)
+    
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        download_name=f'reporte_{usuario.nombre.replace(" ", "_")}.xlsx',
+        as_attachment=True
+    )
