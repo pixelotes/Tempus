@@ -1,11 +1,11 @@
 <p>Hola,</p>
 <p>{{ solicitante.nombre }} ha solicitado {{ tipo_texto }}:</p>
-<ul>
-    <li>Desde: {{ solicitud.fecha_inicio }}</li>
-    <li>Hasta: {{ solicitud.fecha_fin }}</li>
-    <li>Días solicitados: {{ solicitud.dias_solicitados }}</li>
-    <li>Motivo: {{ solicitud.motivo or 'No especificado' }}</li>
-</ul>
-<p>Notificados: {{ nombres_aprobadores }}</p>
+<table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+    <tr style="background-color: #f2f2f2;"><td style="padding: 8px; border: 1px solid #ddd;"><strong>Desde:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">{{ solicitud.fecha_inicio }}</td></tr>
+    <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Hasta:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">{{ solicitud.fecha_fin }}</td></tr>
+    <tr style="background-color: #f2f2f2;"><td style="padding: 8px; border: 1px solid #ddd;"><strong>Días solicitados:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">{{ solicitud.dias_solicitados }}</td></tr>
+    <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Motivo:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">{{ solicitud.motivo or 'No especificado' }}</td></tr>
+</table>
+<p><strong>Notificados:</strong> {{ nombres_aprobadores }}</p>
 <p>Por favor, revisa y responde a esta solicitud en el sistema.</p>
 <p>Saludos,<br>Sistema de Gestión de Fichajes</p>
