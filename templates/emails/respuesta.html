@@ -1,0 +1,13 @@
+<p>Hola {{ usuario.nombre }},</p>
+<p>Tu solicitud de {{ tipo_texto }} ha sido <strong>{{ estado_texto }}</strong>.</p>
+<p>Detalles de la solicitud:</p>
+<ul>
+    <li>Desde: {{ solicitud.fecha_inicio }}</li>
+    <li>Hasta: {{ solicitud.fecha_fin }}</li>
+    <li>Días solicitados: {{ solicitud.dias_solicitados }}</li>
+    <li>Estado: {{ estado_texto }}</li>
+    <li>Respondida por: {{ nombre_aprobador }}</li>
+    <li>Fecha de respuesta: {{ solicitud.fecha_respuesta or 'N/A' }}</li>
+    {% if solicitud.comentarios %}<li>Comentarios: {{ solicitud.comentarios }}</li>{% endif %}
+</ul>
+<p>Saludos,<br>Sistema de Gestión de Fichajes</p>

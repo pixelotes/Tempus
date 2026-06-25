@@ -1,0 +1,15 @@
+Hola,
+
+{{ solicitante.nombre }} ha solicitado {{ tipo_texto }}:
+
+- Desde: {{ solicitud.fecha_inicio }}
+- Hasta: {{ solicitud.fecha_fin }}
+- Días solicitados: {{ solicitud.dias_solicitados }}
+- Motivo: {{ solicitud.motivo or 'No especificado' }}
+
+Notificados: {{ nombres_aprobadores }}
+
+Por favor, revisa y responde a esta solicitud en el sistema.
+
+Saludos,
+Sistema de Gestión de Fichajes

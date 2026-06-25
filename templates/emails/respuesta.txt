@@ -1,0 +1,15 @@
+Hola {{ usuario.nombre }},
+
+Tu solicitud de {{ tipo_texto }} ha sido {{ estado_texto }}.
+
+Detalles de la solicitud:
+- Desde: {{ solicitud.fecha_inicio }}
+- Hasta: {{ solicitud.fecha_fin }}
+- Días solicitados: {{ solicitud.dias_solicitados }}
+- Estado: {{ estado_texto }}
+- Respondida por: {{ nombre_aprobador }}
+- Fecha de respuesta: {{ solicitud.fecha_respuesta or 'N/A' }}
+{% if solicitud.comentarios %}- Comentarios: {{ solicitud.comentarios }}{% endif %}
+
+Saludos,
+Sistema de Gestión de Fichajes

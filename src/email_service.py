@@ -1,4 +1,4 @@
-from flask_mail import Mail, Message
+from flask_mail import Mail
 from flask import current_app
 from concurrent.futures import ThreadPoolExecutor
 import os
@@ -42,158 +42,71 @@ def _send_async(app, msg):
             print(f"❌ Error enviando email: {e}")
 
 
+from src.email_utils import send_email_async
+
 def enviar_email_solicitud(aprobadores, solicitante, solicitud):
     """
     Envía email de notificación de nueva solicitud a todos los responsables.
-    Adaptado para manejar tanto Vacaciones como Bajas.
     """
-    # Extraer los correos de la lista de objetos recibida
-    emails_destinatarios = [a.email for a in aprobadores]
-    
-    if not emails_destinatarios:
+    emails = [a.email for a in aprobadores]
+    if not emails:
         return
 
-    # Determinar tipo de solicitud para el texto
-    # Si tiene atributo 'tipo_ausencia', es una Baja/Ausencia
     es_baja = hasattr(solicitud, 'tipo_ausencia')
-    if es_baja:
-        nombre_tipo = solicitud.tipo_ausencia.nombre if solicitud.tipo_ausencia else "Baja/Ausencia"
-        tipo_texto = f"ausencia ({nombre_tipo})"
-        asunto_tipo = "Ausencia/Baja"
-    else:
-        tipo_texto = "vacaciones"
-        asunto_tipo = "Vacaciones"
+    tipo_texto = f"ausencia ({solicitud.tipo_ausencia.nombre if solicitud.tipo_ausencia else 'Ausencia'})" if es_baja else "vacaciones"
+    asunto_tipo = "Ausencia/Baja" if es_baja else "Vacaciones"
 
-    # Construir lista de nombres para el cuerpo del mensaje
-    nombres_aprobadores = ', '.join([a.nombre for a in aprobadores])
-
-    msg = Message(
+    context = {
+        'solicitante': solicitante,
+        'tipo_texto': tipo_texto,
+        'solicitud': solicitud,
+        'nombres_aprobadores': ', '.join([a.nombre for a in aprobadores])
+    }
+    
+    send_email_async(
         subject=f'Nueva solicitud de {asunto_tipo} de {solicitante.nombre}',
-        sender=current_app.config['MAIL_DEFAULT_SENDER'],
-        recipients=emails_destinatarios
+        recipients=emails,
+        template_name='solicitud',
+        context=context
     )
-    
-    msg.body = f'''
-Hola,
-
-{solicitante.nombre} ha solicitado {tipo_texto}:
-
-- Desde: {solicitud.fecha_inicio}
-- Hasta: {solicitud.fecha_fin}
-- Días solicitados: {solicitud.dias_solicitados}
-- Motivo: {solicitud.motivo or 'No especificado'}
-
-Notificados: {nombres_aprobadores}
-
-Por favor, revisa y responde a esta solicitud en el sistema.
-
-Saludos,
-Sistema de Gestión de Fichajes
-    '''
-    
-    # Enviar usando el executor (gestiona threads automáticamente)
-    app = current_app._get_current_object()
-    future = email_executor.submit(_send_async, app, msg)
-    
-    def handle_email_result(fut):
-        try:
-            fut.result()  # Lanza excepción si hubo error
-        except Exception as e:
-            print(f"⚠️ Email callback error: {e}")
-    
-    future.add_done_callback(handle_email_result)
 
 
 def enviar_email_respuesta(usuario, solicitud):
     """
     Envía email de notificación de respuesta (aprobación/rechazo).
-    Funciona para Vacaciones y Bajas.
     """
-    # Corregido: Usar .estado en lugar de .state
     estado_texto = "APROBADA" if solicitud.estado == 'aprobada' else "RECHAZADA"
-    
-    # Determinar tipo de texto
     es_baja = hasattr(solicitud, 'tipo_ausencia')
-    if es_baja:
-        nombre_tipo = solicitud.tipo_ausencia.nombre if solicitud.tipo_ausencia else "Ausencia"
-        tipo_texto = f"ausencia ({nombre_tipo})"
-    else:
-        tipo_texto = "vacaciones"
+    tipo_texto = f"ausencia ({solicitud.tipo_ausencia.nombre if solicitud.tipo_ausencia else 'Ausencia'})" if es_baja else "vacaciones"
+
+    context = {
+        'usuario': usuario,
+        'tipo_texto': tipo_texto,
+        'estado_texto': estado_texto,
+        'solicitud': solicitud,
+        'nombre_aprobador': solicitud.aprobador.nombre if solicitud.aprobador else 'Sistema'
+    }
     
-    msg = Message(
+    send_email_async(
         subject=f'Tu solicitud de {tipo_texto} ha sido {estado_texto}',
-        sender=current_app.config['MAIL_DEFAULT_SENDER'],
-        recipients=[usuario.email]
+        recipients=[usuario.email],
+        template_name='respuesta',
+        context=context
     )
-    
-    # Obtener nombre del aprobador de forma segura
-    nombre_aprobador = 'Sistema'
-    if solicitud.aprobador:
-        nombre_aprobador = solicitud.aprobador.nombre
-    
-    msg.body = f'''
-Hola {usuario.nombre},
-
-Tu solicitud de {tipo_texto} ha sido {estado_texto}.
-
-Detalles de la solicitud:
-- Desde: {solicitud.fecha_inicio}
-- Hasta: {solicitud.fecha_fin}
-- Días solicitados: {solicitud.dias_solicitados}
-- Estado: {estado_texto}
-- Respondida por: {nombre_aprobador}
-- Fecha de respuesta: {solicitud.fecha_respuesta or 'N/A'}
-{f"- Comentarios: {solicitud.comentarios}" if solicitud.comentarios else ""}
-
-Saludos,
-Sistema de Gestión de Fichajes
-    '''
-    
-    # Enviar usando el executor
-    app = current_app._get_current_object()
-    future = email_executor.submit(_send_async, app, msg)
-    
-    def handle_email_result(fut):
-        try:
-            fut.result()
-        except Exception as e:
-            print(f"⚠️ Email callback error: {e}")
-    
-    future.add_done_callback(handle_email_result)
 
 
 def enviar_email_otp(usuario, codigo):
     """
     Envía email con el código OTP para verificación de MFA.
     """
-    msg = Message(
+    context = {
+        'usuario': usuario,
+        'codigo': codigo
+    }
+    
+    send_email_async(
         subject='Código de verificación de seguridad',
-        sender=current_app.config['MAIL_DEFAULT_SENDER'],
-        recipients=[usuario.email]
+        recipients=[usuario.email],
+        template_name='otp',
+        context=context
     )
-    
-    msg.body = f'''
-Hola {usuario.nombre},
-
-Se ha detectado un inicio de sesión desde una ubicación o dispositivo nuevo.
-Por favor, utiliza el siguiente código para verificar tu identidad:
-
-{codigo}
-
-Este código expira en 10 minutos.
-Si no has sido tú, por favor contacta con el administrador.
-
-Saludos,
-Sistema de Gestión de Fichajes
-    '''
-    
-    app = current_app._get_current_object()
-    future = email_executor.submit(_send_async, app, msg)
-    
-    def handle_email_result(fut):
-        try:
-            fut.result()
-        except Exception as e:
-            print(f"⚠️ Email OTP callback error: {e}")
-    
-    future.add_done_callback(handle_email_result)

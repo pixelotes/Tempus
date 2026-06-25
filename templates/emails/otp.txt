@@ -1,0 +1,12 @@
+Hola {{ usuario.nombre }},
+
+Se ha detectado un inicio de sesión desde una ubicación o dispositivo nuevo.
+Por favor, utiliza el siguiente código para verificar tu identidad:
+
+{{ codigo }}
+
+Este código expira en 10 minutos.
+Si no has sido tú, por favor contacta con el administrador.
+
+Saludos,
+Sistema de Gestión de Fichajes

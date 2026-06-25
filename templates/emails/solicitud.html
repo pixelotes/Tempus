@@ -1,0 +1,11 @@
+<p>Hola,</p>
+<p>{{ solicitante.nombre }} ha solicitado {{ tipo_texto }}:</p>
+<ul>
+    <li>Desde: {{ solicitud.fecha_inicio }}</li>
+    <li>Hasta: {{ solicitud.fecha_fin }}</li>
+    <li>Días solicitados: {{ solicitud.dias_solicitados }}</li>
+    <li>Motivo: {{ solicitud.motivo or 'No especificado' }}</li>
+</ul>
+<p>Notificados: {{ nombres_aprobadores }}</p>
+<p>Por favor, revisa y responde a esta solicitud en el sistema.</p>
+<p>Saludos,<br>Sistema de Gestión de Fichajes</p>
