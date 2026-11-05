@@ -29,7 +29,7 @@ spec:
             # OPCIÓN A: Postgres Interno (Kubernetes Service)
             {{- if eq .Values.database.type "internal" }}
             - name: SQLALCHEMY_DATABASE_URI
-              value: postgresql://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ include "fichador.fullname" . }}-db:5432/{{ .Values.postgresql.auth.database }}
+              value: postgresql+psycopg2://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ include "fichador.fullname" . }}-db:5432/{{ .Values.postgresql.auth.database }}
             
             # OPCIÓN B: Postgres Externo (Aurora, RDS, etc)
             {{- else if eq .Values.database.type "external" }}
@@ -42,7 +42,7 @@ spec:
             
             # 2. Usamos esa variable para construir la URI
             - name: SQLALCHEMY_DATABASE_URI
-              value: postgresql://{{ .Values.database.external.username }}:$(DB_PASSWORD_RAW)@{{ .Values.database.external.host }}:{{ .Values.database.external.port }}/{{ .Values.database.external.database }}
+              value: postgresql+psycopg2://{{ .Values.database.external.username }}:$(DB_PASSWORD_RAW)@{{ .Values.database.external.host }}:{{ .Values.database.external.port }}/{{ .Values.database.external.database }}
             
             # OPCIÓN C: SQLite (Local)
             # Forzamos la ruta a /data/fichaje.db para usar el volumen persistente
