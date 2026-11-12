@@ -15,3 +15,4 @@ jobs:
     uses: pixelotes/ci-security-baseline/.github/workflows/ci-python.yml@v1
     with:
       python-version: '3.11'
+      run-container: true   # builds ./Dockerfile, hadolint + Trivy image
