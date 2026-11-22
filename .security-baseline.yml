@@ -1,0 +1,32 @@
+# Security baseline policy: https://github.com/pixelotes/ci-security-baseline
+version: 1
+
+# stages: optional, defaults to all of them
+# (build, lint, sast, secret-scan, sca, container-scan, iac-scan, quality)
+
+gate:
+  severity: high
+  # Pilot adoption: whatever was introduced before this date only warns.
+  cutoff: '2026-11-12'
+
+exceptions:
+  # Pilot adoption: the image findings cannot be dated with git blame, so the
+  # cutoff cannot downgrade them. They come from the base image
+  # (python:3.11.14-slim) and its bundled pip/setuptools/wheel, plus the helm
+  # chart and backup Dockerfile copied into the image. Revisit by bumping the
+  # base image; this exception expires on purpose.
+  - tool: trivy
+    scope: 'local/scan'
+    reason: 'OS packages of python:3.11.14-slim; fixed by bumping the base image'
+    owner: '@pixelotes'
+    expires: '2026-12-13'
+  - tool: trivy
+    scope: 'usr/local/lib/python3.11/**'
+    reason: 'pip/setuptools/wheel bundled in the base image'
+    owner: '@pixelotes'
+    expires: '2026-12-13'
+  - tool: trivy
+    scope: 'app/**'
+    reason: 'helm chart and backup Dockerfile copied into the image; scan them as IaC instead'
+    owner: '@pixelotes'
+    expires: '2026-12-13'
